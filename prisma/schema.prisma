@@ -1,7 +1,7 @@
 // database
 datasource db {
   provider = "postgresql"
-  url = "postgresql://tourismuser:ov6q4tBAxv04hZ4Wi4UT6KeZRtFHirYF@dpg-cqu7b9jv2p9s73d271s0-a.frankfurt-postgres.render.com/tourismdb_1ppd"
+  url = env("DATABASE_URL")
 }
 
 // generator
