@@ -79,27 +79,73 @@ class TemplateSender:
 class StageOneSender(TemplateSender):
     def __init__(self):
         super().__init__()
-        self.template_name = "website_welcome_he"
+        self.template_name = "accessible_room_he"
 
 class StageTwoSender(TemplateSender):
     def __init__(self):
         super().__init__()
-        self.template_name = "current_loc_he"
+        self.template_name = "pet_he"
+
 
 class StageThree(TemplateSender):
     def __init__(self):
         super().__init__()
-        self.template_name = "settlements_he"
+        self.template_name = "finale_3"
+
+    def send_template(self, incomingMessage, userData):
+        """
+        Override the base send_template method to include specific body variables
+        from userData.
+        """
+        print("StageThree send_template method")
+        
+        api_key = os.getenv("API_KEY")
+        from_number = os.getenv("PHONE")
+        to_number = incomingMessage.get("from_number")
+        name = self.template_name  # Use the template name set in this subclass
+        language = 1  # Assuming this stage requires a different language
+
+        # Construct the payload with specific body variables from userData
+        payload = {
+            "apiKey": api_key,
+            "from": from_number,
+            "to": to_number,
+            "name": name,
+            "language": language,
+            "headerType": 1,  # Default header type
+            "bodyVariable1": userData.get("identification"),
+            "bodyVariable2": userData.get("id_number"),
+            "bodyVariable4": userData.get("people"),
+            "bodyVariable5": userData.get("accessible"),
+            "bodyVariable6": userData.get("pet")
+        }
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        # Send the request with the payload
+        api_99 = os.getenv("API_BRIDGE")
+        suffix = "/sendTemplate"
+        url = api_99 + suffix
+
+        response = requests.post(url, json=payload, headers=headers)
+        print(response.text)
+        if response.status_code == 200:
+            return {"message": "Question sent successfully."}
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
 
 def get_template_sender(stage):
     """
     Factory function to get the appropriate TemplateSender subclass based on the stage.
     """
-    if stage == "start":
+    if stage == "accessible":
         return StageOneSender()
-    elif stage == "collecting_basic_info":
+    elif stage == "pet":
         return StageTwoSender()
-    elif stage == "settlements":
+    elif stage == "before_end":
         return StageThree()
     else:
         raise ValueError("Unknown stage: {}".format(stage))  # Error handling for unknown stages
@@ -291,6 +337,59 @@ def send_message_ppl(from_number, to_number):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
+def send_message_reset(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body": f" מכיוון שהזנתם ,אין אישור,אתם יכולים להכניס את הפרטים מחדש. תודה והמשך יום טוב"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+def send_message_confim(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body": f"קיבלתי, אני מחפש חדרים רלוונטיים עבורכם ואחזור אליך מייד לאחר שאמצא. "
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
 
 class MessageSender:
     def __init__(self):
@@ -354,3 +453,4 @@ def get_message_sender(stage):
 #     translator = Translator()
 #     translation = translator.translate(name, src='en', dest='he')
 #     return translation.text
+
