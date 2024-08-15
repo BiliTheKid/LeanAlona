@@ -170,9 +170,6 @@ def get_template_sender(stage):
     else:
         raise ValueError("Unknown stage: {}".format(stage))  # Error handling for unknown stages
 
-
-
-
 def send_message_non(from_number, to_number):
     """
     send message, for non-legal approved
@@ -251,7 +248,6 @@ def send_message_name_hotel(from_number, to_number):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-
 def send_message_name_identification(from_number, to_number):
     """"
     send message for users that insert wrong input.
@@ -304,7 +300,6 @@ def send_message_name_id(from_number, to_number,sender_name):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-
 def send_message_name_id_error(from_number, to_number,sender_name):
     """"
     send message for users that insert wrong input.
@@ -330,7 +325,6 @@ def send_message_name_id_error(from_number, to_number,sender_name):
         return {"message": "message sent successfully."}
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
-
 
 def send_message_place(from_number, to_number):
     """"
@@ -436,6 +430,56 @@ def send_message_confim(from_number, to_number):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
+def send_message_correct_place(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")   
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body": f"לא נמצא יישוב תואם, אנא נסה שוב."
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+def send_message_approve_place(from_number, to_number,matched_place):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")   
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body": f"אתה מתכוון ל-{matched_place}? אם כן, אנא אשר עם 'כן'."
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
 
 ## create override function for diffrent message , not in used for now
 class MessageSender:
@@ -496,9 +540,6 @@ def get_message_sender(stage):
         raise ValueError("Unknown stage: {}".format(stage))  # Error handling for unknown stages
 
 
-import pandas as pd
-from fuzzywuzzy import process
-
 # Load the CSV file into a DataFrame
 import pandas as pd
 from fuzzywuzzy import process
@@ -524,7 +565,7 @@ def find_best_settlement_match(place: str) -> str:
         if score >= 60:  # You can adjust this threshold as needed
             return best_match
         else:
-            return "No suitable match found"
+            return "failed"
     
     except FileNotFoundError:
         print("Error: The file 'settlements.csv' was not found.")

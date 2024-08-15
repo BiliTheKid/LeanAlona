@@ -9,8 +9,8 @@ from helpers.helpers import (
     send_message_non, get_template_sender, TemplateSender, send_message_gen,
     send_message_name_hotel, get_message_sender, send_message_name_identification,
     send_message_name_id, send_message_place, send_message_ppl, send_message_reset,
-    send_message_confim, is_israeli_id_number,send_message_name_id_error
-)
+    send_message_confim, is_israeli_id_number,send_message_name_id_error,find_best_settlement_match
+,send_message_correct_place,send_message_approve_place)
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -124,9 +124,35 @@ def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -> str:
 
 
     elif current_stage == 'place':
-        user_state.update_data('place', user_response)
-        send_message_ppl(user_input.get("to"), user_input.get("from_number"))
-        user_state.update_state('people')
+        #working
+        # user_state.update_data('place', user_response)
+        # send_message_ppl(user_input.get("to"), user_input.get("from_number"))
+        # user_state.update_state('people')
+        #onp
+        matched_place = find_best_settlement_match(user_response)
+        
+        if matched_place == "failed":
+            # If no match found, prompt the user to try again
+            send_message_correct_place(user_input.get("to"), user_input.get("from_number"))
+            return "No match found. Please try again."
+
+        # Ask for confirmation
+        
+        send_message_approve_place(user_input.get("to"), user_input.get("from_number"), matched_place)
+        
+        # Wait for the user to confirm
+        user_state.update_data('place', matched_place)
+        user_state.update_state('confirm_place')
+    
+    elif current_stage == 'confirm_place':
+        if user_response == 'כן':
+            # If user confirms, proceed to the next stage
+            send_message_ppl(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('people')
+        else:
+            send_message_place(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('place')
+
 
     elif current_stage == 'people':
         user_state.update_data('people', user_response)
