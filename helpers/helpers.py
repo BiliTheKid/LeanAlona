@@ -287,7 +287,7 @@ def send_message_name_id(from_number, to_number,sender_name):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": f" היי,  {sender_name} מה מס תז השלך?"
+        "body": f" היי,  {sender_name} מה מס תז שלך?"
     }
     headers = {
         "Content-Type": "application/json"
@@ -313,7 +313,7 @@ def send_message_name_id_error(from_number, to_number,sender_name):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": f"היי מספר התז שהקלדת לא חוקי, בשביל שנוכל לשבץ אותך נו הקלד שוב.  "
+        "body": f"היי מספר תז שהקלדת לא חוקי, בשביל שנוכל לשבץ אותך נא הקלד שוב.  "
     }
     headers = {
         "Content-Type": "application/json"
@@ -479,6 +479,7 @@ def send_message_approve_place(from_number, to_number,matched_place):
         return {"message": "message sent successfully."}
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
+
 
 
 ## create override function for diffrent message , not in used for now
