@@ -9,6 +9,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def create_settlement(data):
+    """
+    Create settlement list in the db
+    """
     try:
         # Create a new settlement
         settlement = await Settlement.prisma().create(data=data)

@@ -1,6 +1,6 @@
 # .env file
 .env
-
+venv
 
 ## settlements list
 Setup/settlements.csv

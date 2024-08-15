@@ -2,6 +2,29 @@ import os
 from fastapi import HTTPException
 import requests
 
+
+## helpers function for validtors
+def is_israeli_id_number(id_number: str) -> bool:
+    # Ensure the input is a string and trim whitespace
+    id_number = str(id_number).strip()
+
+    # Check if the ID number is too long or contains non-numeric characters
+    if len(id_number) > 9 or not id_number.isdigit():
+        return False
+
+    # Pad the ID number with leading zeros if it's less than 9 digits
+    id_number = id_number.zfill(9)
+
+    # Calculate the checksum
+    checksum = sum(
+        int(digit) * ((index % 2) + 1) - 9 if int(digit) * ((index % 2) + 1) > 9 else int(digit) * ((index % 2) + 1)
+        for index, digit in enumerate(id_number)
+    )
+
+    # Return True if the checksum is divisible by 10, otherwise False
+    return checksum % 10 == 0
+
+
 def send_question(api_key, from_number, to_number, name, language, header_type):
     api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
     #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
@@ -52,9 +75,6 @@ def send_message_fa(from_number, to_number,body_message,sender_name):
         return {"message": "message sent successfully."}
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
-
-
-
 
 ### genric function template general use depends on the stage
 class TemplateSender:
@@ -152,7 +172,6 @@ def get_template_sender(stage):
 
 
 
-## create override function for diffrent message
 
 def send_message_non(from_number, to_number):
     """
@@ -285,6 +304,34 @@ def send_message_name_id(from_number, to_number,sender_name):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
+
+def send_message_name_id_error(from_number, to_number,sender_name):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body": f"היי מספר התז שהקלדת לא חוקי, בשביל שנוכל לשבץ אותך נו הקלד שוב.  "
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
 def send_message_place(from_number, to_number):
     """"
     send message for users that insert wrong input.
@@ -368,7 +415,7 @@ def send_message_confim(from_number, to_number):
     send message for users that insert wrong input.
     """
     api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
-    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  
     suffix = "/sendMessage"    # The suffix you want to add
     url = api_99 + suffix
     api_key = os.getenv("API_KEY")
@@ -390,7 +437,7 @@ def send_message_confim(from_number, to_number):
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
 
-
+## create override function for diffrent message , not in used for now
 class MessageSender:
     def __init__(self):
         # Initialize with a default template name
@@ -449,8 +496,47 @@ def get_message_sender(stage):
         raise ValueError("Unknown stage: {}".format(stage))  # Error handling for unknown stages
 
 
-# def translate_name_to_hebrew(name: str) -> str:
-#     translator = Translator()
-#     translation = translator.translate(name, src='en', dest='he')
-#     return translation.text
+import pandas as pd
+from fuzzywuzzy import process
+
+# Load the CSV file into a DataFrame
+import pandas as pd
+from fuzzywuzzy import process
+
+def find_best_settlement_match(place: str) -> str:
+    try:
+        # Attempt to load the CSV file
+        current_dir = os.path.dirname(__file__)  # Directory of the current script
+        setup_dir = os.path.abspath(os.path.join(current_dir, '..', 'Setup'))  # Navigate up one level and then into 'setup'
+        file_path = os.path.join(setup_dir, 'settlements.csv')
+
+        # Load the CSV file
+        settlements_df = pd.read_csv(file_path)
+        # Extract only the official settlement names for matching
+        settlement_names = settlements_df['Settlement'].tolist()
+        print(settlement_names)
+
+        # Perform fuzzy matching
+        best_match, score = process.extractOne(place, settlement_names)
+        print(best_match, score)
+
+        # Set a threshold score to determine if the match is good enough
+        if score >= 60:  # You can adjust this threshold as needed
+            return best_match
+        else:
+            return "No suitable match found"
+    
+    except FileNotFoundError:
+        print("Error: The file 'settlements.csv' was not found.")
+        return "File not found"
+
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty.")
+        return "Empty file"
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return "An error occurred"
+    
+
 

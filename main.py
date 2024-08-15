@@ -5,37 +5,46 @@ import uvicorn
 from prisma import Prisma
 import re
 from models.user import UserState 
-from helpers.helpers import send_message_non , get_template_sender , TemplateSender , send_message_gen, send_message_name_hotel, get_message_sender, send_message_name_identification, send_message_name_id, send_message_place, send_message_ppl,send_message_reset,send_message_confim
+from helpers.helpers import (
+    send_message_non, get_template_sender, TemplateSender, send_message_gen,
+    send_message_name_hotel, get_message_sender, send_message_name_identification,
+    send_message_name_id, send_message_place, send_message_ppl, send_message_reset,
+    send_message_confim, is_israeli_id_number,send_message_name_id_error
+)
 
-####
 # Initialize FastAPI app
 app = FastAPI()
-# Initialize Prisma
+
+# Initialize Prisma ORM with auto-registration of models
 db = Prisma(auto_register=True)
+
 @app.on_event("startup")
 async def startup():
+    # Connect to the database when the application starts
     await db.connect()
 
 @app.on_event("shutdown")
 async def shutdown():
+    # Disconnect from the database when the application stops
     await db.disconnect()
 
-
-
+# Define mappings for handling specific responses (e.g., confirmation and reset actions)
 RESPONSE_ACTIONS = {
     'אישור': 'confirm',
     'אין אישור': 'reset_state'
 }
 
-## regex for general questions checking
+# Define regex patterns for matching text commands in user messages
 COMMANDS = {
     'TEXT': re.compile(r' הי| שלום| היי| מה קורה? אהלן'),
 }
 
+# In-memory store for user states (could be replaced by a persistent store)
 user_states = {}
 
-
-def extract_and_map_fields(data: dict[str, Any]) -> Dict[str, Any]:
+# Function to extract and map fields from the incoming request data
+def extract_and_map_fields(data: Dict[str, Any]) -> Dict[str, Any]:
+    # Map incoming data to a standardized format
     mapped_data = {
         "status": data.get('status', ''),
         "from_number": data.get('from', ''),
@@ -48,79 +57,88 @@ def extract_and_map_fields(data: dict[str, Any]) -> Dict[str, Any]:
     }
     return mapped_data
 
+# Function to retrieve the user state, creating a new one if it doesn't exist
 def get_user_state(user_id: str) -> UserState:
     if user_id not in user_states:
         user_states[user_id] = UserState(user_id)
     return user_states[user_id]
 
- 
 @app.post("/")
 async def receive_message(request: Request):
-    # Receive and process the data
+    # Receive and process incoming data
     data = await request.json()
     print(data)
-    # Extract and map fields
+
+    # Extract and map fields for easier handling
     incoming_message = extract_and_map_fields(data)
     print("Extracted fields:", incoming_message)
-    ## edit
+
+    # Check if the message body is present (non-empty)
     if incoming_message.get("body"):
         user_id = incoming_message.get('from_number')
         user_state = get_user_state(user_id)
         print(f"User ID: {user_id}")
         print(f"User State: {user_state}")
-        # Handle state transition with non-empty body
+
+        # Handle the state transition based on the current state and user input
         response_message = handle_transition(user_state, incoming_message)
     else:
         print("Received empty message body. Skipping processing.")
+
+    # Return the response (this could be adjusted based on your needs)
     return JSONResponse(content=incoming_message, status_code=200)
 
-def handle_transition(user_state: UserState, user_input: dict) -> str:
+# Function to handle state transitions and send responses based on user input
+def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -> str:
     current_stage = user_state.get_current_stage()
     print(f"Current stage: {current_stage}")
 
     user_response = user_input.get("body")
     print(f"User response: {user_response}")
 
+    # Handle different stages of conversation based on the user state
     if current_stage == 'start':
         user_state.update_state('identification')
         user_state.update_data('identification', user_response)
-        # sender = get_template_sender("start")      
-        #response = sender.send_template(user_input) 
-        message_sender = get_message_sender("identification")  # Create the appropriate sender instance
-        response = send_message_name_identification(user_input.get("to"),user_input.get("from_number"))  # Send the template
+        message_sender = get_message_sender("identification")
+        response = send_message_name_identification(user_input.get("to"), user_input.get("from_number"))
 
     elif current_stage == 'identification':
         user_state.update_data('id_number', user_response)
-        # print(f" מה מס תז שלך? {user_response} היי, ")
-        # message_sender = get_message_sender("identification")
-        send_message_name_id(user_input.get("to"),user_input.get("from_number"),user_response)
-        # response = message_sender.send_message(user_input)
+        send_message_name_id(user_input.get("to"), user_input.get("from_number"), user_response)
         user_state.update_state('id_number')
 
     elif current_stage == 'id_number':
+
+        if not is_israeli_id_number(user_response):
+            # If invalid, send an error message and keep the state as 'id_number'
+            send_message_name_id_error(user_input.get("to"), user_input.get("from_number"), "מספר תעודת זהות לא תקין, אנא נסה שוב.")
+            return "Invalid ID number. Please try again."
+
+        # If valid, proceed with the next steps
         user_state.update_data('id_number', user_response)
-        send_message_place(user_input.get("to"),user_input.get("from_number"))
-        # user_state.update_state('children_exist')
+        send_message_place(user_input.get("to"), user_input.get("from_number"))
         user_state.update_state('place')
+
+
+
 
     elif current_stage == 'place':
         user_state.update_data('place', user_response)
-        send_message_ppl(user_input.get("to"),user_input.get("from_number"))
-        # user_state.update_state('children_exist')
+        send_message_ppl(user_input.get("to"), user_input.get("from_number"))
         user_state.update_state('people')
 
     elif current_stage == 'people':
         user_state.update_data('people', user_response)
         user_state.update_data('accessible', user_response)
-        sender = get_template_sender("accessible")      
-        response = sender.send_template(user_input) 
+        sender = get_template_sender("accessible")
+        response = sender.send_template(user_input)
         user_state.update_state('accessible')
-    
 
     elif current_stage == 'accessible':
         user_state.update_data('accessible', user_response)
-        sender = get_template_sender("pet")      
-        response = sender.send_template(user_input) 
+        sender = get_template_sender("pet")
+        response = sender.send_template(user_input)
         user_state.update_state('pet')
 
     elif current_stage == 'pet':
@@ -131,26 +149,21 @@ def handle_transition(user_state: UserState, user_input: dict) -> str:
 
     elif current_stage == 'finale':
         user_state.update_data('finale', user_response)
-      # Determine action based on response
-        # action = RESPONSE_ACTIONS.get(user_response)
+
+        # Handle final stage responses and determine next steps
         if user_response == 'אישור':
             send_message_confim(user_input.get("to"), user_input.get("from_number"))
-            # await create_user_answer(user_state, user_input)
             user_state.update_state('END')
-            # return "Thank you! Your answers have been recorded."
-        
+
         elif user_response == 'אין אישור':
             user_state.update_state('start')
             send_message_reset(user_input.get("to"), user_input.get("from_number"))
-            # return "Please provide your details again. The chat will start from the beginning."
 
         else:
             raise ValueError(f"Unknown response: {user_response}")
 
     elif current_stage == 'END':
         return "תודה רבה והמשך יום טוב!"
-
-
 
 if __name__ == '__main__':
     import uvicorn
