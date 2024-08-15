@@ -1,6 +1,9 @@
 import os
+from typing import Any, Dict
 from fastapi import HTTPException
 import requests
+
+from models.user import UserState
 
 
 ## helpers function for validtors
@@ -261,7 +264,7 @@ def send_message_name_identification(from_number, to_number):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": " שלום הגעתם לבוט של משרד התיירות, בשביל לדעת לאיזה מלון אתם צריכים להגיע בהתאם ליישוב מגורכם, נוודא את זהותכם, מה שמכם המלא?"
+        "body": "שלום הגעתם למרכז הפינוי של משרד התיירות! \nאנחנו כאן בשבילכם! \nעל מנת לתת שיבוץ לבית מלון, נצטרך מספר פרטי זיהוי. \nמהו שמכם המלא?"
     }
     headers = {
         "Content-Type": "application/json"
@@ -287,7 +290,7 @@ def send_message_name_id(from_number, to_number,sender_name):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": f" היי,  {sender_name} מה מס תז שלך?"
+        "body": f" היי,  {sender_name} מה מס ת.ז שלך?"
     }
     headers = {
         "Content-Type": "application/json"
@@ -313,7 +316,7 @@ def send_message_name_id_error(from_number, to_number,sender_name):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": f"היי מספר תז שהקלדת לא חוקי, בשביל שנוכל לשבץ אותך נא הקלד שוב.  "
+        "body": f"היי מספר ת.ז שהקלדת לא חוקי, בשביל שנוכל לשבץ אותך נא הקלד שוב.  "
     }
     headers = {
         "Content-Type": "application/json"
@@ -506,7 +509,7 @@ class MessageSender:
 class MessageId(MessageSender):
     def __init__(self):
         super().__init__()
-        self.body_message = f" מה מס תז שלך? {self.sender_name} היי,"
+        self.body_message = f" מה מס ת.ז שלך? {self.sender_name} היי,"
         
 
 class LegalMessageNotApproved(MessageSender):
@@ -580,5 +583,71 @@ def find_best_settlement_match(place: str) -> str:
         print(f"An unexpected error occurred: {e}")
         return "An error occurred"
     
+import pandas as pd
+from pathlib import Path
 
+def get_settlement_code(best_match: str) -> str:
+    try:
+        # Construct the relative path to 'settlements.csv'
+        current_dir = Path(__file__).resolve().parent
+        setup_dir = current_dir.parent / 'setup'
+        file_path = setup_dir / 'settlements.csv'
+        
+        # Load the CSV file
+        settlements_df = pd.read_csv(file_path)
+        
+        # Check if the DataFrame contains the necessary columns
+        if 'Settlement' not in settlements_df.columns or 'Settlement_code' not in settlements_df.columns:
+            raise ValueError("CSV file is missing required columns.")
+        
+        # Find the Settlement_code for the best_match
+        matching_row = settlements_df[settlements_df['Settlement'] == best_match]
+        
+        if not matching_row.empty:
+            settlement_code = matching_row['Settlement_code'].values[0]
+            return settlement_code
+        else:
+            return "No matching settlement found"
 
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
+        return "File not found"
+
+    except pd.errors.EmptyDataError:
+        print(f"Error: The file '{file_path}' is empty.")
+        return "Empty file"
+
+    except ValueError as e:
+        print(f"Error: {e}")
+        return "Error"
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return "An error occurred"
+
+def process_user_state(user_state: Dict[str, Any]) -> Dict[str, Any]:
+    bool_mapping = {'כן': True, 'לא': False}
+    
+    def convert_to_boolean(value: str) -> bool:
+        return bool_mapping.get(value, False)
+    
+    def convert_to_int(value: Any) -> int:
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
+    
+    def validate_string(value: Any) -> str:
+        return str(value) if isinstance(value, str) else ''
+    
+    return {
+        'identification': validate_string(user_state.get('identification', '')),
+        'id_number': validate_string(user_state.get('id_number', '')),
+        'place': convert_to_int(user_state.get('place')),
+        'people': convert_to_int(user_state.get('people', 0)),
+        'accessible': convert_to_boolean(user_state.get('accessible', '')),
+        'pet': convert_to_boolean(user_state.get('pet', ''))
+    }
+
+# if __name__ == "__main__":
+#     print(get_settlement_code("גונן​"))
