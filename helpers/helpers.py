@@ -1,9 +1,12 @@
 import os
+import random
 from typing import Any, Dict
 from fastapi import HTTPException
 import requests
+from pathlib import Path
+import time
 
-from models.user import UserState
+# from models.user import UserState
 
 
 ## helpers function for validtors
@@ -657,7 +660,6 @@ def find_best_settlement_match(place: str):
         print(f"An unexpected error occurred: {e}")
         return "An error occurred"
     
-import pandas as pd
 from pathlib import Path
 
 def get_settlement_code(best_match: str) -> str:
@@ -733,7 +735,7 @@ def send_hotel_option(from_number, to_number,hotel_options):
     """
     api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
     #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
-    suffix = "/sendMessage"    # The suffix you want to add
+    suffix = "/sendButtons"    # The suffix you want to add
     url = api_99 + suffix
     api_key = os.getenv("API_KEY")
     payload = {
@@ -742,9 +744,60 @@ def send_hotel_option(from_number, to_number,hotel_options):
         "to": to_number,
         "header":1,
         "body": "מצאתי לכם חדרים פנויים. אנא בחר מתוך האפשרויות הבאות : ",
-        "button1": "שרתון ירושלים",
-        "button2": "אוריאנט",
-        "button3": "וולדורמה"
+        "button1": hotel_options[0],
+        "button2": hotel_options[1],
+        "button3": hotel_options[2]
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
+def get_random_hotel_names_from_file(num_options=3):
+    # Construct the relative path to 'hotels.csv'
+    current_dir = Path(__file__).resolve().parent
+    setup_dir = current_dir.parent / 'Setup'
+    file_path = setup_dir / 'hotels.csv'
+
+    time.sleep(3)
+    # Read the CSV file
+    df = pd.read_csv(file_path)
+    
+    # Extract the hotel names
+    hotel_names = df['Hotel Name'].tolist()
+    
+    # Check if the number of options requested is greater than the number of available hotels
+    if num_options > len(hotel_names):
+        raise ValueError("Number of requested options exceeds the number of available hotels.")
+    
+    # Select random hotel names
+    random_hotel_names = random.sample(hotel_names, num_options)
+    
+    return random_hotel_names
+
+# print(get_random_hotel_names_from_file())
+
+def send_message_ppl_error(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body": f"בבקשה להזין את המידע מספרית"
     }
     headers = {
         "Content-Type": "application/json"

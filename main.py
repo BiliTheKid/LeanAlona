@@ -10,7 +10,7 @@ from helpers.helpers import (
     send_message_name_id, send_message_place, send_message_ppl, send_message_reset,
     send_message_confim, is_israeli_id_number, send_message_name_id_error, find_best_settlement_match,
     send_message_correct_place, send_message_approve_place, get_settlement_code, process_user_state,
-    send_message_place_stage_validtion
+    send_message_place_stage_validtion, get_random_hotel_names_from_file,send_hotel_option
 )
 from models.user_answer import UserAnswerCreate
 from services.services import create_user_answer_endpoint
@@ -189,7 +189,10 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             # Call the endpoint function with the processed data
             #await create_user_answer_endpoint(user_answer_data)
             send_message_confim(user_input.get("to"), user_input.get("from_number"))
-
+            hotels_options = get_random_hotel_names_from_file()
+            print(hotels_options)
+            hotels =  send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
+            print(hotels)
             user_state.update_state('END')
 
         elif user_response == 'תיקון':
