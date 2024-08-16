@@ -102,18 +102,18 @@ class TemplateSender:
 class StageOneSender(TemplateSender):
     def __init__(self):
         super().__init__()
-        self.template_name = "accessible_room_he"
+        self.template_name = "accessible_room_he1"
 
 class StageTwoSender(TemplateSender):
     def __init__(self):
         super().__init__()
-        self.template_name = "pet_he"
+        self.template_name = "pet_he1"
 
 
 class StageThree(TemplateSender):
     def __init__(self):
         super().__init__()
-        self.template_name = "finale_3"
+        self.template_name = "finale_5"
 
     def send_template(self, incomingMessage, userData):
         """
@@ -159,6 +159,52 @@ class StageThree(TemplateSender):
         else:
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
+class settlements(TemplateSender):
+    def __init__(self):
+        super().__init__()
+        self.template_name = "approve_settelment"
+    def send_template(self, incomingMessage, var):
+        """
+        Override the base send_template method to include specific body variables
+        from userData.
+        """
+        print("StageThree send_template method")
+        
+        api_key = os.getenv("API_KEY")
+        from_number = os.getenv("PHONE")
+        to_number = incomingMessage.get("from_number")
+        name = self.template_name  # Use the template name set in this subclass
+        language = 1  # Assuming this stage requires a different language
+
+        # Construct the payload with specific body variables from userData
+        payload = {
+            "apiKey": api_key,
+            "from": from_number,
+            "to": to_number,
+            "name": name,
+            "language": language,
+            "headerType": 1,  # Default header type
+            "bodyVariable1": var
+        }
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        # Send the request with the payload
+        api_99 = os.getenv("API_BRIDGE")
+        suffix = "/sendTemplate"
+        url = api_99 + suffix
+
+        response = requests.post(url, json=payload, headers=headers)
+        print(response.text)
+        if response.status_code == 200:
+            return {"message": "Question sent successfully."}
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
+
 
 def get_template_sender(stage):
     """
@@ -170,6 +216,8 @@ def get_template_sender(stage):
         return StageTwoSender()
     elif stage == "before_end":
         return StageThree()
+    elif stage == 'confirm_place':
+        return settlements()
     else:
         raise ValueError("Unknown stage: {}".format(stage))  # Error handling for unknown stages
 
@@ -186,7 +234,7 @@ def send_message_non(from_number, to_number):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": "תודה רבה לך, ואני כאן בשבילך לשאלות כלליות"
+        "body": "תודה לך, ואני כאן בשבילך לשאלות כלליות"
     }
     headers = {
         "Content-Type": "application/json"
@@ -264,7 +312,7 @@ def send_message_name_identification(from_number, to_number):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": "שלום הגעתם למרכז הפינוי של משרד התיירות! \nאנחנו כאן בשבילכם! \nעל מנת לתת שיבוץ לבית מלון, נצטרך מספר פרטי זיהוי. \nמהו שמכם המלא?"
+        "body":"שלום, הגעתם למרכז השיבוץ למלונות של משרד התיירות.\nאשאל אתכם מספר פרטים ואסייע לכם למצוא מלון שמתאים לכם בזריזות.\nמה שמכם המלא?"
     }
     headers = {
         "Content-Type": "application/json"
@@ -290,7 +338,7 @@ def send_message_name_id(from_number, to_number,sender_name):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": f" היי,  {sender_name} מה מס ת.ז שלך?"
+        "body": f"שלום {sender_name}, מה מספר תעודת הזהות שלך?"
     }
     headers = {
         "Content-Type": "application/json"
@@ -316,7 +364,7 @@ def send_message_name_id_error(from_number, to_number,sender_name):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": f"היי מספר ת.ז שהקלדת לא חוקי, בשביל שנוכל לשבץ אותך נא הקלד שוב.  "
+        "body": f"מספר הזהות שהוקלד שגוי, לטובת המשך התהליך אנא הקלידו מספר זהות תקין "
     }
     headers = {
         "Content-Type": "application/json"
@@ -342,7 +390,33 @@ def send_message_place(from_number, to_number):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": f" תודה רבה, מאיזה ישוב אתם?"
+        "body": f"תודה. מאיזה יישוב אתם מפונים?"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+def send_message_place_stage_validtion(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body": f"מאיזה יישוב אתם מפונים"
     }
     headers = {
         "Content-Type": "application/json"
@@ -420,7 +494,7 @@ def send_message_confim(from_number, to_number):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body": f"קיבלתי, אני מחפש חדרים רלוונטיים עבורכם ואחזור אליך מייד לאחר שאמצא. "
+        "body": f"קיבלתי. אני מחפש עבורכם חדרים מתאימים במלון ואחזור אליכם בהקדם."
     }
     headers = {
         "Content-Type": "application/json"
@@ -515,7 +589,7 @@ class MessageId(MessageSender):
 class LegalMessageNotApproved(MessageSender):
     def __init__(self):
         super().__init__()
-        self.template_name = "תודה רבה לך, ואני כאן בשבילך לשאלות כלליות"
+        self.template_name = "תודה לך, ואני כאן בשבילך לשאלות כלליות"
 
 class MessageApt(MessageSender):
     def __init__(self):
@@ -548,7 +622,7 @@ def get_message_sender(stage):
 import pandas as pd
 from fuzzywuzzy import process
 
-def find_best_settlement_match(place: str) -> str:
+def find_best_settlement_match(place: str):
     try:
         # Attempt to load the CSV file
         current_dir = os.path.dirname(__file__)  # Directory of the current script
@@ -559,25 +633,25 @@ def find_best_settlement_match(place: str) -> str:
         settlements_df = pd.read_csv(file_path)
         # Extract only the official settlement names for matching
         settlement_names = settlements_df['Settlement'].tolist()
-        print(settlement_names)
+        # print(settlement_names)
 
         # Perform fuzzy matching
         best_match, score = process.extractOne(place, settlement_names)
-        print(best_match, score)
+        # print(best_match, score)
 
         # Set a threshold score to determine if the match is good enough
         if score >= 60:  # You can adjust this threshold as needed
-            return best_match
+            return best_match , score  
         else:
-            return "failed"
+            return "failed" , 0
     
     except FileNotFoundError:
         print("Error: The file 'settlements.csv' was not found.")
-        return "File not found"
+        return "File not found" , 0 
 
     except pd.errors.EmptyDataError:
         print("Error: The CSV file is empty.")
-        return "Empty file"
+        return "Empty file" , 0
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
@@ -605,7 +679,7 @@ def get_settlement_code(best_match: str) -> str:
         
         if not matching_row.empty:
             settlement_code = matching_row['Settlement_code'].values[0]
-            return settlement_code
+            return settlement_code 
         else:
             return "No matching settlement found"
 
@@ -651,3 +725,34 @@ def process_user_state(user_state: Dict[str, Any]) -> Dict[str, Any]:
 
 # if __name__ == "__main__":
 #     print(get_settlement_code("גונן​"))
+
+
+def send_hotel_option(from_number, to_number,hotel_options):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "header":1,
+        "body": "מצאתי לכם חדרים פנויים. אנא בחר מתוך האפשרויות הבאות : ",
+        "button1": "שרתון ירושלים",
+        "button2": "אוריאנט",
+        "button3": "וולדורמה"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)

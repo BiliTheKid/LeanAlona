@@ -2,16 +2,15 @@ from typing import Any, Dict
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import uvicorn
-from prisma import Prisma
 import re
-from models import user_answer
 from models.user import UserState
 from helpers.helpers import (
     send_message_non, get_template_sender, TemplateSender, send_message_gen,
     send_message_name_hotel, get_message_sender, send_message_name_identification,
     send_message_name_id, send_message_place, send_message_ppl, send_message_reset,
     send_message_confim, is_israeli_id_number, send_message_name_id_error, find_best_settlement_match,
-    send_message_correct_place, send_message_approve_place, get_settlement_code, process_user_state
+    send_message_correct_place, send_message_approve_place, get_settlement_code, process_user_state,
+    send_message_place_stage_validtion
 )
 from models.user_answer import UserAnswerCreate
 from services.services import create_user_answer_endpoint
@@ -126,19 +125,26 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         user_state.update_state('place')
 
     elif current_stage == 'place':
-        matched_place = find_best_settlement_match(user_response)
-        
+        matched_place, score = find_best_settlement_match(user_response)
+        print("matched place", matched_place)
+
         if matched_place == "failed":
             # If no match found, prompt the user to try again
             send_message_correct_place(user_input.get("to"), user_input.get("from_number"))
             return "No match found. Please try again."
 
-        # Ask for confirmation
-        send_message_approve_place(user_input.get("to"), user_input.get("from_number"), matched_place)
-        
-        # Wait for the user to confirm
-        user_state.update_data('place', matched_place)
-        user_state.update_state('confirm_place')
+        if score == 100:
+            # If the match is perfect, proceed to the next stage
+            send_message_ppl(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_data('place', matched_place)
+            user_state.update_state('people')
+        else:
+            # If the match is not perfect, ask for confirmation
+            sender = get_template_sender("confirm_place")
+            response = sender.send_template(user_input, matched_place)
+            # Wait for the user to confirm
+            user_state.update_data('place', matched_place)
+            user_state.update_state('confirm_place')
 
     elif current_stage == 'confirm_place':
         if user_response == 'כן':
@@ -146,7 +152,8 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             send_message_ppl(user_input.get("to"), user_input.get("from_number"))
             user_state.update_state('people')
         else:
-            send_message_place(user_input.get("to"), user_input.get("from_number"))
+            # If user does not confirm, re-prompt for the place
+            send_message_place_stage_validtion(user_input.get("to"), user_input.get("from_number"))
             user_state.update_state('place')
 
     elif current_stage == 'people':
@@ -180,12 +187,12 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             user_answer_data = process_user_state(user_state.data)
             print(user_answer_data)
             # Call the endpoint function with the processed data
-            await create_user_answer_endpoint(user_answer_data)
+            #await create_user_answer_endpoint(user_answer_data)
             send_message_confim(user_input.get("to"), user_input.get("from_number"))
 
             user_state.update_state('END')
 
-        elif user_response == 'אין אישור':
+        elif user_response == 'תיקון':
             user_state.update_state('start')
             send_message_reset(user_input.get("to"), user_input.get("from_number"))
 
