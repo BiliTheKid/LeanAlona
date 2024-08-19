@@ -10,7 +10,8 @@ from helpers.helpers import (
     send_message_name_id, send_message_place, send_message_ppl, send_message_reset,
     send_message_confim, is_israeli_id_number, send_message_name_id_error, find_best_settlement_match,
     send_message_correct_place, send_message_approve_place, get_settlement_code, process_user_state,
-    send_message_place_stage_validtion, get_random_hotel_names_from_file,send_hotel_option
+    send_message_place_stage_validtion, get_random_hotel_names_from_file,send_hotel_option, is_numeric, send_message_ppl_error,
+send_hotel_voucher_no_rooms,send_hotel_defulat,send_hotel_room
 )
 from models.user_answer import UserAnswerCreate
 from services.services import create_user_answer_endpoint
@@ -157,11 +158,15 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             user_state.update_state('place')
 
     elif current_stage == 'people':
-        user_state.update_data('people', user_response)
-        user_state.update_data('accessible', user_response)
-        sender = get_template_sender("accessible")
-        response = sender.send_template(user_input)
-        user_state.update_state('accessible')
+        if not is_numeric(user_response):
+            send_message_ppl_error(user_input.get("to"), user_input.get("from_number"))
+            return {"error": "The response must be a number."}
+        else:
+            user_state.update_data('people', user_response)
+            # user_state.update_data('accessible', user_response)
+            sender = get_template_sender("accessible")
+            response = sender.send_template(user_input)
+            user_state.update_state('accessible')
 
     elif current_stage == 'accessible':
         user_state.update_data('accessible', user_response)
@@ -191,9 +196,9 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             send_message_confim(user_input.get("to"), user_input.get("from_number"))
             hotels_options = get_random_hotel_names_from_file()
             print(hotels_options)
-            hotels =  send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
+            hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
             print(hotels)
-            user_state.update_state('END')
+            user_state.update_state('hotel_allocation')
 
         elif user_response == 'תיקון':
             user_state.update_state('start')
@@ -202,6 +207,27 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         else:
             raise ValueError(f"Unknown response: {user_response}")
 
+    elif current_stage == 'hotel_allocation':
+        """
+        the user get 3-4 option for hotel, he need to choose 
+        option if what choosen exist(rooms exist) he get voucher
+        elif: we choose for him what exist. and he get voucher.
+        else: sorry we dont have rooms for you.
+        """
+        # hotels_options = await get_random_hotel_names_from_file()
+        # print(hotels_options)
+        # hotels = send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
+        # print(hotels)
+        random_chice = get_random_hotel_names_from_file()
+        if user_response in random_chice:
+            send_hotel_room(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('END')
+        elif user_response not in random_chice:
+            send_hotel_defulat(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('END')
+        else: 
+            send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number")) 
+            user_state.update_state('END')
     elif current_stage == 'END':
         return "תודה רבה והמשך יום טוב!"
 

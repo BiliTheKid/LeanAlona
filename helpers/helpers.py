@@ -206,9 +206,6 @@ class settlements(TemplateSender):
         else:
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
-
-
-
 def get_template_sender(stage):
     """
     Factory function to get the appropriate TemplateSender subclass based on the stage.
@@ -725,11 +722,8 @@ def process_user_state(user_state: Dict[str, Any]) -> Dict[str, Any]:
         'pet': convert_to_boolean(user_state.get('pet', ''))
     }
 
-# if __name__ == "__main__":
-#     print(get_settlement_code("גונן​"))
 
-
-def send_hotel_option(from_number, to_number,hotel_options):
+async def send_hotel_option(from_number, to_number,hotel_options):
     """"
     send message for users that insert wrong input.
     """
@@ -809,3 +803,96 @@ def send_message_ppl_error(from_number, to_number):
         return {"message": "message sent successfully."}
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
+
+def is_numeric(value):
+    """
+    Check if the provided value is numeric.
+    """
+    return value.isdigit() if isinstance(value, str) else False
+
+def send_hotel_voucher_no_rooms(from_number, to_number):
+    """
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body": f"היי מצטערים נורא, מכסת החדרים הקיימים במערכות אינטרנט נגמרו צרו קשר עם מנהל הקהילה שלכם"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+def send_hotel_room(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendFile"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "caption":" בבקשה הוואצר של המלון שביקשתם, נא להגיע לשם...",
+        "body": "https://dl.dropboxusercontent.com/scl/fi/txkt0y6f3le7p7s4lvkj3/output.pdf?rlkey=0tonyfy32rx8knvh0us83k2xt&st=dlk851xt"
+    
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+def send_hotel_defulat(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendFile"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "caption":"לצערנו הרב, אין מקום פנוי במלון שביקשתם, אתם מתבקשים להגיע לכאן",
+        "body": "https://dl.dropboxusercontent.com/scl/fi/txkt0y6f3le7p7s4lvkj3/output.pdf?rlkey=0tonyfy32rx8knvh0us83k2xt&st=dlk851xt"
+    
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
+
+# if __name__ == "__main__":
+#     print(get_settlement_code("גונן​"))
