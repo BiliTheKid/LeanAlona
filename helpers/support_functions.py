@@ -49,17 +49,17 @@ def create_pdf(file_name, fields, qr_code_data):
     pdf.showPage()
     pdf.save()
 
-if __name__ == "__main__":
-    # Define dynamic fields
-    dynamic_fields = {
-        "Name": "John Doe",
-        "Email": "john.doe@example.com",
-        "Phone": "123-456-7890",
-        "Address": "1234 Main St, City, State"
-    }
+# if __name__ == "__main__":
+#     # Define dynamic fields
+#     dynamic_fields = {
+#         "Name": "John Doe",
+#         "Email": "john.doe@example.com",
+#         "Phone": "123-456-7890",
+#         "Address": "1234 Main St, City, State"
+#     }
 
-    # Define QR code data
-    qr_code_data = "https://www.example.com"
+#     # Define QR code data
+#     qr_code_data = "https://www.example.com"
 
-    # Generate the PDF
-    create_pdf("output.pdf", dynamic_fields, qr_code_data)
+#     # Generate the PDF
+#     create_pdf("output.pdf", dynamic_fields, qr_code_data)

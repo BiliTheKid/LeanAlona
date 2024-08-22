@@ -723,36 +723,79 @@ def process_user_state(user_state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-async def send_hotel_option(from_number, to_number,hotel_options):
-    """"
-    send message for users that insert wrong input.
+async def send_hotel_option(from_number: str, to_number: str, hotel_options: list):
+    """
+    Send a message with dynamic buttons based on the number of hotel options provided.
     """
     api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
-    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
     suffix = "/sendButtons"    # The suffix you want to add
     url = api_99 + suffix
     api_key = os.getenv("API_KEY")
+
+    if not api_99 or not api_key:
+        raise HTTPException(status_code=500, detail="API endpoint or API key not configured.")
+
+    # Create the base payload
     payload = {
-        "apiKey": api_key ,
+        "apiKey": api_key,
         "from": from_number,
         "to": to_number,
-        "header":1,
-        "body": "מצאתי לכם חדרים פנויים. אנא בחר מתוך האפשרויות הבאות : ",
-        "button1": hotel_options[0],
-        "button2": hotel_options[1],
-        "button3": hotel_options[2]
+        "header": 1,
+        "body": "מצאתי לכם חדרים פנויים. אנא בחר מתוך האפשרויות הבאות : "
     }
+
+    # Dynamically add button options to the payload
+    for i, option in enumerate(hotel_options, start=1):
+        if i <= 4:  # Limit to 4 buttons
+            payload[f"button{i}"] = option
+
     headers = {
         "Content-Type": "application/json"
     }
-    print(payload)
-    response = requests.post(url, json=payload, headers=headers)
-    print(response)
-    if response.status_code == 200:
-        return {"message": "message sent successfully."}
-    else:
-        raise HTTPException(status_code=response.status_code, detail=response.text)
 
+    try:
+        # Send the request
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()  # Raise an error for HTTP error responses
+        print(response)
+
+        if response.status_code == 200:
+            return {"message": "Message sent successfully."}
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    except requests.RequestException as e:
+        # Handle request exceptions (e.g., network issues)
+        raise HTTPException(status_code=500, detail=f"Request failed: {str(e)}")
+    # """"
+    # send message for users that insert wrong input.
+    # """
+    # api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    # #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    # suffix = "/sendButtons"    # The suffix you want to add
+    # url = api_99 + suffix
+    # api_key = os.getenv("API_KEY")
+    # payload = {
+    #     "apiKey": api_key ,
+    #     "from": from_number,
+    #     "to": to_number,
+    #     "header":1,
+    #     "body": "מצאתי לכם חדרים פנויים. אנא בחר מתוך האפשרויות הבאות : ",
+    #     "button1": hotel_options[0],
+    #     "button2": hotel_options[1],
+    #     "button3": hotel_options[2]
+    # }
+    # headers = {
+    #     "Content-Type": "application/json"
+    # }
+    # print(payload)
+    # response = requests.post(url, json=payload, headers=headers)
+    # print(response)
+    # if response.status_code == 200:
+    #     return {"message": "message sent successfully."}
+    # else:
+    #     raise HTTPException(status_code=response.status_code, detail=response.text)
+    
 
 def get_random_hotel_names_from_file(num_options=3):
     # Construct the relative path to 'hotels.csv'
@@ -810,6 +853,9 @@ def is_numeric(value):
     """
     return value.isdigit() if isinstance(value, str) else False
 
+
+
+
 def send_hotel_voucher_no_rooms(from_number, to_number):
     """
     send message for users that insert wrong input.
@@ -836,21 +882,20 @@ def send_hotel_voucher_no_rooms(from_number, to_number):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-def send_hotel_room(from_number, to_number):
+def send_hotel_room(from_number, to_number,voucher):
     """"
     send message for users that insert wrong input.
     """
     api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
     #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
-    suffix = "/sendFile"    # The suffix you want to add
+    suffix = "/sendMessage"    # The suffix you want to add
     url = api_99 + suffix
     api_key = os.getenv("API_KEY")
     payload = {
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "caption":" בבקשה הוואצר של המלון שביקשתם, נא להגיע לשם...",
-        "body": "https://dl.dropboxusercontent.com/scl/fi/txkt0y6f3le7p7s4lvkj3/output.pdf?rlkey=0tonyfy32rx8knvh0us83k2xt&st=dlk851xt"
+        "body": f"{voucher} בבקשה הוואצר של המלון שביקשתם, נא להגיע לשם...\n"
     
     }
     headers = {
@@ -864,21 +909,20 @@ def send_hotel_room(from_number, to_number):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-def send_hotel_defulat(from_number, to_number):
+def send_hotel_defulat(from_number, to_number,voucher):
     """"
     send message for users that insert wrong input.
     """
     api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
     #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
-    suffix = "/sendFile"    # The suffix you want to add
+    suffix = "/sendMessage"    # The suffix you want to add
     url = api_99 + suffix
     api_key = os.getenv("API_KEY")
     payload = {
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "caption":"לצערנו הרב, אין מקום פנוי במלון שביקשתם, אתם מתבקשים להגיע לכאן",
-        "body": "https://dl.dropboxusercontent.com/scl/fi/txkt0y6f3le7p7s4lvkj3/output.pdf?rlkey=0tonyfy32rx8knvh0us83k2xt&st=dlk851xt"
+        "body": f"{voucher} \nלצערנו הרב, אין מקום פנוי במלון שביקשתם, אתם מתבקשים להגיע לכאן"
     
     }
     headers = {

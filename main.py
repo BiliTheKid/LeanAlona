@@ -13,6 +13,7 @@ from helpers.helpers import (
     send_message_place_stage_validtion, get_random_hotel_names_from_file,send_hotel_option, is_numeric, send_message_ppl_error,
 send_hotel_voucher_no_rooms,send_hotel_defulat,send_hotel_room
 )
+from services.message_services import fetch_availability,get_placement_if_exists
 from models.user_answer import UserAnswerCreate
 from services.services import create_user_answer_endpoint
 
@@ -96,6 +97,7 @@ async def receive_message(request: Request):
 async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -> str:
     current_stage = user_state.get_current_stage()
     print(f"Current stage: {current_stage}")
+    place_value = None
 
     user_response = user_input.get("body")
     print(f"User response: {user_response}")
@@ -190,11 +192,14 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             user_state.update_data('place', int(settlement_code))
             print(user_state.get_data)
             user_answer_data = process_user_state(user_state.data)
-            print(user_answer_data)
+            # print("user-answer-data",user_answer_data)
+            #### now it will not work (write to db, cause there is a chnge to do settlemnt-code and settlment)
             # Call the endpoint function with the processed data
             #await create_user_answer_endpoint(user_answer_data)
+            place_str = str(place_value)
+            user_state.update_data('place', place_str)
             send_message_confim(user_input.get("to"), user_input.get("from_number"))
-            hotels_options = get_random_hotel_names_from_file()
+            hotels_options = await fetch_availability(place_value)
             print(hotels_options)
             hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
             print(hotels)
@@ -218,18 +223,30 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         # print(hotels_options)
         # hotels = send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
         # print(hotels)
-        random_chice = get_random_hotel_names_from_file()
-        if user_response in random_chice:
-            send_hotel_room(user_input.get("to"), user_input.get("from_number"))
+        #random_chice = get_random_hotel_names_from_file()
+        residence = user_response
+        print("place user" , user_state.get_value('place'))
+        place_value = user_state.get_value('place')
+        voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
+        voucher_status = voucher_response.get("status")
+        voucher_link = voucher_response.get("link")
+        print("voucher_response:", voucher_response)
+        
+        if voucher_status == "error-no-available-rooms":
+            send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
             user_state.update_state('END')
-        elif user_response not in random_chice:
-            send_hotel_defulat(user_input.get("to"), user_input.get("from_number"))
-            user_state.update_state('END')
-        else: 
-            send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number")) 
-            user_state.update_state('END')
+
+        elif voucher_status == "error-other-residence-reserved":
+                send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
+                user_state.update_state('END')
+
+        elif voucher_status == "success":
+                send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
+                user_state.update_state('END')
+
     elif current_stage == 'END':
         return "תודה רבה והמשך יום טוב!"
+    
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=8000)
