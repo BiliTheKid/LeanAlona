@@ -146,14 +146,23 @@ async def get_placement_if_exists(
 
         # Check if the response was successful
         if response.status_code in (200, 201):
-            response_json = response.json()
-            # Extract the status and link
-            status = response_json.get("status")
-            link = response_json.get("reservation", {}).get("link")
-            if status == "success" and link:
-                return {"status": status, "link": link}
-            else:
-                return {"status": status}
+            try:
+                response_json = response.json()
+                # Extract the status, link, and residence
+                status = response_json.get("status")
+                link = response_json.get("reservation", {}).get("link")
+                residence = response_json.get("reservation", {}).get("residence")
+
+                if status == "success" and link and residence:
+                    return {"status": status, "link": link, "residence": residence}
+                elif status == "success" and link:
+                    return {"status": status, "link": link}
+                else:
+                    return {"status": status}
+            except HTTPStatusError as e:
+                raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+            except RequestError as e:
+                raise HTTPException(status_code=500, detail=f"Request failed: {str(e)}")
         else:
             # Handle the error if the response is not successful
             raise HTTPException(status_code=response.status_code, detail=response.text)

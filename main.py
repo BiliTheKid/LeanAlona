@@ -11,7 +11,8 @@ from helpers.helpers import (
     send_message_confim, is_israeli_id_number, send_message_name_id_error, find_best_settlement_match,
     send_message_correct_place, send_message_approve_place, get_settlement_code, process_user_state,
     send_message_place_stage_validtion, get_random_hotel_names_from_file,send_hotel_option, is_numeric, send_message_ppl_error,
-send_hotel_voucher_no_rooms,send_hotel_defulat,send_hotel_room
+send_hotel_voucher_no_rooms,send_hotel_defulat,send_hotel_room,confirm_or_cancle_hotel,thanks_for_approval,thanks_for_decline
+,end_confirm,end_decline
 )
 from services.message_services import fetch_availability,get_placement_if_exists
 from models.user_answer import UserAnswerCreate
@@ -62,6 +63,7 @@ def extract_and_map_fields(data: Dict[str, Any]) -> Dict[str, Any]:
     }
     return mapped_data
 
+
 # Function to retrieve the user state, creating a new one if it doesn't exist
 def get_user_state(user_id: str) -> UserState:
     if user_id not in user_states:
@@ -107,9 +109,14 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
     # Handle different stages of conversation based on the user state
     if current_stage == 'start':
         user_state.update_state('identification')
-        message_sender = get_message_sender("identification")
+        #message_sender = get_message_sender("identification")
         response = send_message_name_identification(user_input.get("to"), user_input.get("from_number"))
         
+
+    # elif current_stage == 'from_reset':
+    #     user_state.update_state('identification')
+    #     response = send_message_name_identification(user_input.get("to"), user_input.get("from_number"))
+
 
     elif current_stage == 'identification':
         user_state.update_data('identification', user_response)
@@ -199,6 +206,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             place_str = str(place_value)
             user_state.update_data('place', place_str)
             send_message_confim(user_input.get("to"), user_input.get("from_number"))
+            # add test here.
             hotels_options = await fetch_availability(place_value)
             print(hotels_options)
             hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
@@ -206,8 +214,13 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             user_state.update_state('hotel_allocation')
 
         elif user_response == 'תיקון':
-            user_state.update_state('start')
-            send_message_reset(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('from_reset')
+            # message_sender = get_message_sender("identification")
+            # response = send_message_name_identification(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('identification')
+            #message_sender = get_message_sender("identification")
+            response = send_message_name_identification(user_input.get("to"), user_input.get("from_number"))
+        
 
         else:
             raise ValueError(f"Unknown response: {user_response}")
@@ -224,29 +237,47 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         # hotels = send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
         # print(hotels)
         #random_chice = get_random_hotel_names_from_file()
+
         residence = user_response
         print("place user" , user_state.get_value('place'))
         place_value = user_state.get_value('place')
         voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
         voucher_status = voucher_response.get("status")
         voucher_link = voucher_response.get("link")
+        voucher_residence = voucher_response.get("residence")
         print("voucher_response:", voucher_response)
         
         if voucher_status == "error-no-available-rooms":
-            send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
-            user_state.update_state('END')
+            send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"),voucher_residence)
+            user_state.update_state('ENDF')
 
         elif voucher_status == "error-other-residence-reserved":
                 send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                user_state.update_state('END')
+                user_state.update_state('DEFAULTHOTEL')
 
         elif voucher_status == "success":
                 send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                user_state.update_state('END')
+                user_state.update_state('DEFAULTHOTEL')
 
-    elif current_stage == 'END':
-        return "תודה רבה והמשך יום טוב!"
+
+    elif current_stage == 'DEFAULTHOTEL':
+        # confirm_or_cancle_hotel(user_input.get("to"), user_input.get("from_number"))
+        if user_response == 'אישור':
+            thanks_for_approval(user_input.get("to"), user_input.get("from_number"))
+ 
+        elif user_response ==  "ביטול":
+            thanks_for_decline(user_input.get("to"), user_input.get("from_number"))
     
+    # elif current_stage == 'END':
+    #     # return "תודה רבה והמשך יום טוב!"
+    #     if user_response == 'אישור':
+    #         end_confirm(user_input.get("to"), user_input.get("from_number"))
+
+    #     elif user_response ==  'ביטול':
+    #         end_decline(user_input.get("to"), user_input.get("from_number"))
+
+    elif current_stage == 'ENDF':
+        return "תודה רבה והמשך יום טוב!"
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=8000)

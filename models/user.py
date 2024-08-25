@@ -22,5 +22,10 @@ class UserState:
     def get_value(self, key: str) -> Any:
         return self.data.get(key)
 
+    def reset(self):
+        """Resets the user state and data."""
+        self.state = 'start'
+        self.data = {}
+
     def __repr__(self):
         return f"UserState(user_id={self.user_id!r}, current_stage={self.current_stage!r}, data={self.data!r})"
