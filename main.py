@@ -1,7 +1,9 @@
 from typing import Any, Dict
-from fastapi import FastAPI, Request
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 import uvicorn
+import json
 import re
 from models.user import UserState
 from helpers.helpers import (
@@ -12,41 +14,49 @@ from helpers.helpers import (
     send_message_correct_place, send_message_approve_place, get_settlement_code, process_user_state,
     send_message_place_stage_validtion, get_random_hotel_names_from_file,send_hotel_option, is_numeric, send_message_ppl_error,
 send_hotel_voucher_no_rooms,send_hotel_defulat,send_hotel_room,confirm_or_cancle_hotel,thanks_for_approval,thanks_for_decline
-,end_confirm,end_decline
+,end_confirm,end_decline,connect_106,send_message_limit_ppl,value_error
 )
 from services.message_services import fetch_availability,get_placement_if_exists
 from models.user_answer import UserAnswerCreate
 from services.services import create_user_answer_endpoint
-
-# Initialize FastAPI app
-app = FastAPI()
-
-from services.services import create_user_answer_endpoint
 from Config.prisma_client import init_prisma_client, disconnect_prisma_client
+from models.user import ThreadSafeUserStateManager
 
-@app.on_event("startup")
-async def startup():
-    # Connect to the database when the application starts
+
+#from redis import asyncio as aioredis
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup code
     await init_prisma_client()
-
-@app.on_event("shutdown")
-async def shutdown():
-    # Disconnect from the database when the application stops
+    # global redis
+    # redis = aioredis.from_url("redis://localhost")
+    # await redis.ping()
+    print("Application startup complete")
+    
+    yield  # This is where the app runs
+    
+    # Shutdown code
     await disconnect_prisma_client()
+    # await redis.close()
+    print("Application shutdown complete")
 
+# Create the FastAPI app with the lifespan
+app = FastAPI(lifespan=lifespan)
 # Define mappings for handling specific responses (e.g., confirmation and reset actions)
-RESPONSE_ACTIONS = {
-    'אישור': 'confirm',
-    'אין אישור': 'reset_state'
-}
+# RESPONSE_ACTIONS = {
+#     'אישור': 'confirm',
+#     'אין אישור': 'reset_state'
+# }
 
 # Define regex patterns for matching text commands in user messages
-COMMANDS = {
-    'TEXT': re.compile(r' הי| שלום| היי| מה קורה? אהלן'),
-}
+# COMMANDS = {
+#     'TEXT': re.compile(r' הי| שלום| היי| מה קורה? אהלן'),
+# }
 
-# In-memory store for user states (could be replaced by a persistent store)
-user_states = {}
+# In-memory store for user states (could be replaced by a persistent store) before edit
+#user_states = {}
+user_state_manager = ThreadSafeUserStateManager()
+
 
 # Function to extract and map fields from the incoming request data
 def extract_and_map_fields(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -63,12 +73,12 @@ def extract_and_map_fields(data: Dict[str, Any]) -> Dict[str, Any]:
     }
     return mapped_data
 
-
+#before edit!
 # Function to retrieve the user state, creating a new one if it doesn't exist
-def get_user_state(user_id: str) -> UserState:
-    if user_id not in user_states:
-        user_states[user_id] = UserState(user_id)
-    return user_states[user_id]
+# def get_user_state(user_id: str) -> UserState:
+#     if user_id not in user_states:
+#         user_states[user_id] = UserState(user_id)
+#     return user_states[user_id]
 
 @app.post("/")
 async def receive_message(request: Request):
@@ -82,18 +92,26 @@ async def receive_message(request: Request):
 
     # Check if the message body is present (non-empty)
     if incoming_message.get("body"):
+        #before edit
+        # user_id = incoming_message.get('from_number')
+        # user_state = get_user_state(user_id)
         user_id = incoming_message.get('from_number')
-        user_state = get_user_state(user_id)
+        user_state = user_state_manager.get_user_state(user_id)
         print(f"User ID: {user_id}")
         print(f"User State: {user_state}")
-
         # Handle the state transition based on the current state and user input
         response_message = await handle_transition(user_state, incoming_message)
+        
+        # Update the user state after handling the transition
+        user_state_manager.update_user_state(user_id, user_state)
+    
+    
     else:
         print("Received empty message body. Skipping processing.")
 
     # Return the response (this could be adjusted based on your needs)
     return JSONResponse(content=incoming_message, status_code=200)
+
 
 # Function to handle state transitions and send responses based on user input
 async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -> str:
@@ -111,11 +129,6 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         user_state.update_state('identification')
         #message_sender = get_message_sender("identification")
         response = send_message_name_identification(user_input.get("to"), user_input.get("from_number"))
-        
-
-    # elif current_stage == 'from_reset':
-    #     user_state.update_state('identification')
-    #     response = send_message_name_identification(user_input.get("to"), user_input.get("from_number"))
 
 
     elif current_stage == 'identification':
@@ -141,13 +154,14 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         if matched_place == "failed":
             # If no match found, prompt the user to try again
             send_message_correct_place(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('start')
             return "No match found. Please try again."
 
         if score == 100:
             # If the match is perfect, proceed to the next stage
             send_message_ppl(user_input.get("to"), user_input.get("from_number"))
             user_state.update_data('place', matched_place)
-            user_state.update_state('people')
+            user_state.update_state('num_of_people')
         else:
             # If the match is not perfect, ask for confirmation
             sender = get_template_sender("confirm_place")
@@ -160,59 +174,121 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         if user_response == 'כן':
             # If user confirms, proceed to the next stage
             send_message_ppl(user_input.get("to"), user_input.get("from_number"))
-            user_state.update_state('people')
-        else:
+            user_state.update_state('num_of_people')
+        elif user_response == 'לא':
             # If user does not confirm, re-prompt for the place
-            send_message_place_stage_validtion(user_input.get("to"), user_input.get("from_number"))
-            user_state.update_state('place')
+            connect_106(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('start')
+        else:
+            value_error(user_input.get("to"), user_input.get("from_number"))
 
-    elif current_stage == 'people':
+    elif current_stage == 'confirm_ppl':
+            send_message_ppl(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('num_of_people')
+
+
+    elif current_stage == 'num_of_people':
         if not is_numeric(user_response):
             send_message_ppl_error(user_input.get("to"), user_input.get("from_number"))
             return {"error": "The response must be a number."}
         else:
+            if int(user_response) > 10:
+                send_message_limit_ppl(user_input.get("to"), user_input.get("from_number"))
+                user_state.update_state('nav_to_106_or_cont')
+            else:
+                user_state.update_data('people', user_response)
+                # user_state.update_data('accessible', user_response)
+                sender = get_template_sender("accessible")
+                response = sender.send_template(user_input)
+                user_state.update_state('accessible')
+
+    elif current_stage == 'people':
             user_state.update_data('people', user_response)
             # user_state.update_data('accessible', user_response)
             sender = get_template_sender("accessible")
             response = sender.send_template(user_input)
             user_state.update_state('accessible')
 
+    elif current_stage == 'nav_to_106_or_cont':
+        if user_response == 'כן':
+            send_message_ppl(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('people')
+
+        elif user_response == 'לא':
+            connect_106(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('start')
+        else:
+            value_error(user_input.get("to"), user_input.get("from_number"))
+            
+            
+
     elif current_stage == 'accessible':
-        user_state.update_data('accessible', user_response)
-        sender = get_template_sender("pet")
-        response = sender.send_template(user_input)
-        user_state.update_state('pet')
+        if user_response not in ['נדרש', 'לא נדרש']:
+            # Handle invalid response
+            value_error(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('accessible')
+        else:
+            # Handle valid response
+            user_state.update_data('accessible', user_response)
+            sender = get_template_sender("pet")
+            response = sender.send_template(user_input)
+            user_state.update_state('pet')
 
     elif current_stage == 'pet':
-        user_state.update_data('pet', user_response)
-        sender = get_template_sender("before_end")
-        response = sender.send_template(user_input, user_state.get_data())
-        user_state.update_state('finale')
+        # Check if the user response is valid
+        if user_response not in ['מגיעים', 'לא מגיעים']:
+            # Handle invalid response
+            value_error(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('pet')  # Reset or handle invalid response
+        else:
+            # Valid response, update state and data
+            user_state.update_data('pet', user_response)
+            sender = get_template_sender("before_end")
+            response = sender.send_template(user_input, user_state.get_data())
+            user_state.update_state('finale')
 
     elif current_stage == 'finale':
         user_state.update_data('finale', user_response)
 
         # Handle final stage responses and determine next steps
         if user_response == 'אישור':
-            place_value = user_state.data.get('place')
-            settlement_code = get_settlement_code(place_value) # Updated to use get_data
-            user_state.update_data('place', int(settlement_code))
-            print(user_state.get_data)
-            user_answer_data = process_user_state(user_state.data)
-            # print("user-answer-data",user_answer_data)
-            #### now it will not work (write to db, cause there is a chnge to do settlemnt-code and settlment)
-            # Call the endpoint function with the processed data
-            #await create_user_answer_endpoint(user_answer_data)
-            place_str = str(place_value)
-            user_state.update_data('place', place_str)
-            send_message_confim(user_input.get("to"), user_input.get("from_number"))
-            # add test here.
-            hotels_options = await fetch_availability(place_value)
-            print(hotels_options)
-            hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
-            print(hotels)
-            user_state.update_state('hotel_allocation')
+            try:
+                place_value = user_state.data.get('place')
+                settlement_code = get_settlement_code(place_value) # Updated to use get_data
+                user_state.update_data('place', int(settlement_code))
+                print(user_state.get_data)
+                user_answer_data = process_user_state(user_state.data)
+                # print("user-answer-data",user_answer_data)
+                #### now it will not work (write to db, cause there is a chnge to do settlemnt-code and settlment)
+                # Call the endpoint function with the processed data
+                #await create_user_answer_endpoint(user_answer_data)
+                place_str = str(place_value)
+                user_state.update_data('place', place_str)
+                send_message_confim(user_input.get("to"), user_input.get("from_number"))
+                # add test here.
+                hotels_options = await fetch_availability(place_value)
 
+                if not hotels_options:
+                    send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
+                    user_state.update_state('start')
+                    
+                else:
+                    try: 
+                        #send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
+                        print("before hotel await",hotels_options)
+                        print("hotel type",type(hotels_options))
+                        hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
+                        print("hotels await",hotels)
+                        user_state.update_data('hotels',hotels)
+                        user_state.update_state('hotel_allocation')
+                    except: 
+                        user_state.update_state('start')
+                        print(f"An error occurred: {e}")
+
+            except Exception as e:
+                # Handle any errors that occur during the process
+                print(f"An error occurred: {e}")
+        
         elif user_response == 'תיקון':
             user_state.update_state('from_reset')
             # message_sender = get_message_sender("identification")
@@ -223,7 +299,8 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         
 
         else:
-            raise ValueError(f"Unknown response: {user_response}")
+            value_error(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('finale')
 
     elif current_stage == 'hotel_allocation':
         """
@@ -237,37 +314,46 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         # hotels = send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
         # print(hotels)
         #random_chice = get_random_hotel_names_from_file()
+        print("user----hotels",user_state.get_value('hotels'))
+        if user_response in user_state.get_value('hotels'):
+            residence = user_response
+            print("place user" , user_state.get_value('place'))
+            place_value = user_state.get_value('place')
+            print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
+            voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
+            voucher_status = voucher_response.get("status")
+            voucher_link = voucher_response.get("link")
+            voucher_residence = voucher_response.get("residence")
+            print("voucher_response:", voucher_response)
+            
+            if voucher_status == "error-no-available-rooms":
+                send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
+                user_state.update_state('start')
 
-        residence = user_response
-        print("place user" , user_state.get_value('place'))
-        place_value = user_state.get_value('place')
-        voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-        voucher_status = voucher_response.get("status")
-        voucher_link = voucher_response.get("link")
-        voucher_residence = voucher_response.get("residence")
-        print("voucher_response:", voucher_response)
+            elif voucher_status == "error-other-residence-reserved":
+                    send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
+                    user_state.update_state('DEFAULTHOTEL')
+
+            elif voucher_status == "success":
+                    send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
+                    user_state.update_state('DEFAULTHOTEL')
         
-        if voucher_status == "error-no-available-rooms":
-            send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"),voucher_residence)
-            user_state.update_state('ENDF')
-
-        elif voucher_status == "error-other-residence-reserved":
-                send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                user_state.update_state('DEFAULTHOTEL')
-
-        elif voucher_status == "success":
-                send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                user_state.update_state('DEFAULTHOTEL')
-
+        else:
+            value_error(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('hotel_allocation')        
 
     elif current_stage == 'DEFAULTHOTEL':
         # confirm_or_cancle_hotel(user_input.get("to"), user_input.get("from_number"))
         if user_response == 'אישור':
             thanks_for_approval(user_input.get("to"), user_input.get("from_number"))
- 
+            user_state.update_state('start')
         elif user_response ==  "ביטול":
             thanks_for_decline(user_input.get("to"), user_input.get("from_number"))
-    
+            user_state.update_state('identification')
+        else:
+            value_error(user_input.get("to"), user_input.get("from_number"))
+
+
     # elif current_stage == 'END':
     #     # return "תודה רבה והמשך יום טוב!"
     #     if user_response == 'אישור':
