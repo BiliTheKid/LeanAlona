@@ -236,7 +236,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
 
     elif current_stage == 'pet':
         # Check if the user response is valid
-        if user_response not in ['מגיעים', 'לא מגיעים']:
+        if user_response not in ['לא', 'כן']:
             # Handle invalid response
             value_error(user_input.get("to"), user_input.get("from_number"))
             user_state.update_state('pet')  # Reset or handle invalid response

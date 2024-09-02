@@ -110,8 +110,7 @@ class StageOneSender(TemplateSender):
 class StageTwoSender(TemplateSender):
     def __init__(self):
         super().__init__()
-        self.template_name = "pet_he_finale1"
-
+        self.template_name = "pet_he_yes_no"
 
 class StageThree(TemplateSender):
     def __init__(self):
@@ -131,6 +130,11 @@ class StageThree(TemplateSender):
         name = self.template_name  # Use the template name set in this subclass
         language = 1  # Assuming this stage requires a different language
 
+        if userData.get("pet") == 'כן':
+            pet_answer = "מגיעים"
+        else:
+            pet_answer = "לא מגיעים"
+
         # Construct the payload with specific body variables from userData
         payload = {
             "apiKey": api_key,
@@ -143,7 +147,7 @@ class StageThree(TemplateSender):
             "bodyVariable2": userData.get("id_number"),
             "bodyVariable4": userData.get("people"),
             "bodyVariable5": userData.get("accessible"),
-            "bodyVariable6": userData.get("pet")
+            "bodyVariable6": pet_answer
         }
 
         headers = {
@@ -205,6 +209,9 @@ class settlements(TemplateSender):
             return {"message": "Question sent successfully."}
         else:
             raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
+
 
 def get_template_sender(stage):
     """
@@ -640,7 +647,7 @@ def find_best_settlement_match(place: str):
         # print(best_match, score)
 
         # Set a threshold score to determine if the match is good enough
-        if score >= 80:  # You can adjust this threshold as needed
+        if score >= 75:  # You can adjust this threshold as needed
             return best_match , score  
         else:
             return "failed" , 0
@@ -854,8 +861,6 @@ def is_numeric(value):
     Check if the provided value is numeric.
     """
     return value.isdigit() if isinstance(value, str) else False
-
-
 
 
 def send_hotel_voucher_no_rooms(from_number, to_number):
