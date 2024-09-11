@@ -73,8 +73,8 @@ def extract_names(data):
     print("Data received in extract_names:", data)
     
     if isinstance(data, dict):
-        available_residences = data.get('availableResidences', {})
-        names = list(available_residences.keys())
+        available_residences = data.get('availableResidencesArray', [])
+        names = [f"{hotel['residence']['name']}, {hotel['residence']['city']}" for hotel in hotels]
         return names
     else:
         raise ValueError("Expected data to be a dictionary but got: " + str(type(data)))
@@ -127,7 +127,7 @@ async def get_placement_if_exists(
         raise ValueError("The 'phone_number' parameter must be a string.")
 
     # Encode the residence and place parameters to handle special characters
-    encoded_residence = quote(residence)
+    encoded_residence = quote(residence.split(',')[0].strip())
     encoded_place = quote(place)
 
     # Prepare the query parameters as a dictionary
