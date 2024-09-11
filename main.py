@@ -393,7 +393,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
                     user_state.update_state('DEFAULTHOTEL')
         elif user_response == "הצגת אפשרויות נוספות":
             next_page_number = user_state.get_value('hotels_page_number') + 1
-            hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), next_page_number)
+            await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), next_page_number)
             user_state.update_data('hotels_page_number',next_page_number)
             user_state.update_state('hotel_allocation')
         elif user_response == "חיפוש":
@@ -404,7 +404,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             user_state.update_state('hotel_allocation')        
     elif current_stage == 'hotel_search':
         hotels = user_state.get_value('hotels')
-        filtered_hotels = [hotel for hotel in hotel_strings if searchValue in hotel]
+        filtered_hotels = [hotel for hotel in hotels if user_response in hotel]
         filtered_hotels_size = len(filtered_hotels)
         if filtered_hotels_size == 0:
             await send_hotel_not_found(user_input.get("to"), user_input.get("from_number"))

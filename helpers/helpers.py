@@ -751,13 +751,13 @@ async def send_hotel_option(from_number: str, to_number: str, hotel_options: lis
         "body": "מצאתי לכם חדרים פנויים. אנא בחר מתוך האפשרויות הבאות : "
     }
 
-    page_size = 5
+    page_size = 1
     start_index = (page_number - 1) * page_size
     end_index = start_index + page_size
     relevant_hotels = hotel_options[start_index:end_index]
     # Dynamically add button options to the payload
     for i, option in enumerate(relevant_hotels, start=1):
-        payload[f"button{i}"] = option
+        payload[f"button{i}"] = option[:20]  # Limit the button text to 20 characters
 
     next_index = i + 1
     if end_index < len(hotel_options):
@@ -1181,7 +1181,7 @@ def send_hotel_search_prompt(from_number, to_number):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-def send_hotel_not_found(from_number, to_number):
+async def send_hotel_not_found(from_number, to_number):
     """"
     send message for users that insert wrong input.
     """
@@ -1207,7 +1207,7 @@ def send_hotel_not_found(from_number, to_number):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-def send_hotel_found(from_number, to_number, hotel_name):
+async def send_hotel_found(from_number, to_number, hotel_name):
     """"
     send message for users that insert wrong input.
     """
@@ -1220,7 +1220,8 @@ def send_hotel_found(from_number, to_number, hotel_name):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
-        "body":"האם התכוונת למלון " + hotel_name + "?",
+        "header": 1,
+        "body":"האם התכוונת ל" + hotel_name + "?",
         "button1": "אישור",
         "button2": "רשימת מלונות"
     }
@@ -1235,7 +1236,7 @@ def send_hotel_found(from_number, to_number, hotel_name):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-def send_hotels_found(from_number, to_number, hotel_names):
+async def send_hotels_found(from_number, to_number, hotel_names):
     """"
     send message for users that insert wrong input.
     """
@@ -1248,12 +1249,13 @@ def send_hotels_found(from_number, to_number, hotel_names):
         "apiKey": api_key ,
         "from": from_number,
         "to": to_number,
+        "header": 1,
         "body":"נמצאו חדרים פנויים במלונות הבאים. יש לבחור את המלון המועדף מתוך האפשרויות הבאות:"
     }
     headers = {
         "Content-Type": "application/json"
     }
-    for i, option in enumerate(hotel_names[:5], start=1):
+    for i, option in enumerate(hotel_names[:2], start=1):
         payload[f"button{i}"] = option
     payload[f"button{i+1}"] = "רשימת מלונות"
     print(payload)
