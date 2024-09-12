@@ -372,26 +372,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         print("user----hotels",user_state.get_value('hotels'))
         if user_response in user_state.get_value('current_page_hotels_dict'):
             residence = user_state.get_value('current_page_hotels_dict')[user_response]
-            print("place user" , user_state.get_value('place'))
-            place_value = user_state.get_value('place')
-            print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-            voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-            voucher_status = voucher_response.get("status")
-            voucher_link = voucher_response.get("link")
-            voucher_residence = voucher_response.get("residence")
-            print("voucher_response:", voucher_response)
-            
-            if voucher_status == "error-no-available-rooms":
-                send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
-                user_state.update_state('start')
-
-            elif voucher_status == "error-other-residence-reserved":
-                    send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                    user_state.update_state('DEFAULTHOTEL')
-
-            elif voucher_status == "success":
-                    send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                    user_state.update_state('DEFAULTHOTEL')
+            handle_hotel_chosen(user_state, residence)
         elif user_response == "הצגת אפשרויות נוספות":
             next_page_number = user_state.get_value('hotels_page_number') + 1
             hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), next_page_number)
@@ -424,23 +405,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
     elif current_stage == 'search_hotel_found_allocation':
         if user_response == 'אישור':
             residence = user_state.get_value('search_hotel_found_allocation')
-            print("place user" , user_state.get_value('place'))
-            place_value = user_state.get_value('place')
-            print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-            voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-            voucher_status = voucher_response.get("status")
-            voucher_link = voucher_response.get("link")
-            voucher_residence = voucher_response.get("residence")
-            print("voucher_response:", voucher_response)
-            if voucher_status == "error-no-available-rooms":
-                send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
-                user_state.update_state('start')
-            elif voucher_status == "error-other-residence-reserved":
-                    send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                    user_state.update_state('DEFAULTHOTEL')
-            elif voucher_status == "success":
-                    send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                    user_state.update_state('DEFAULTHOTEL')
+            handle_hotel_chosen(user_state, residence)
         else:
             await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), user_state.get_value('hotels_page_number'))
             user_state.update_state('hotel_allocation')
@@ -448,23 +413,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
     elif current_stage == 'search_hotels_found_allocation':
         if user_response in user_state.get_value('search_hotels_found_allocation'):
             residence = user_state.get_value('search_hotels_found_allocation')[user_response]
-            print("place user" , user_state.get_value('place'))
-            place_value = user_state.get_value('place')
-            print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-            voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-            voucher_status = voucher_response.get("status")
-            voucher_link = voucher_response.get("link")
-            voucher_residence = voucher_response.get("residence")
-            print("voucher_response:", voucher_response)
-            if voucher_status == "error-no-available-rooms":
-                send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
-                user_state.update_state('start')
-            elif voucher_status == "error-other-residence-reserved":
-                    send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                    user_state.update_state('DEFAULTHOTEL')
-            elif voucher_status == "success":
-                    send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                    user_state.update_state('DEFAULTHOTEL')
+            handle_hotel_chosen(user_state, residence)
         else:
             await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), user_state.get_value('hotels_page_number'))
             user_state.update_state('hotel_allocation')
@@ -491,6 +440,25 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
 
     elif current_stage == 'ENDF':
         return "תודה רבה והמשך יום טוב!"
+
+async def handle_hotel_chosen(user_state: UserState, residence: str)
+    print("place user" , user_state.get_value('place'))
+    place_value = user_state.get_value('place')
+    print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
+    voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
+    voucher_status = voucher_response.get("status")
+    voucher_link = voucher_response.get("link")
+    voucher_residence = voucher_response.get("residence")
+    print("voucher_response:", voucher_response)
+    if voucher_status == "error-no-available-rooms":
+        send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
+        user_state.update_state('start')
+    elif voucher_status == "error-other-residence-reserved":
+            send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
+            user_state.update_state('DEFAULTHOTEL')
+    elif voucher_status == "success":
+            send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
+            user_state.update_state('DEFAULTHOTEL')
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=8000)
