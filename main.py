@@ -332,7 +332,8 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
                         print("hotel type",type(hotels_options))
                         hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options, 1)
                         print("hotels await",hotels)
-                        user_state.update_data('hotels',hotels)
+                        user_state.update_data('current_page_hotels_dict',hotels)
+                        user_state.update_data('hotels',hotels_options)
                         user_state.update_data('hotels_page_number', 1)
                         user_state.update_state('hotel_allocation')
                     except: 
@@ -369,8 +370,8 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         # print(hotels)
         #random_chice = get_random_hotel_names_from_file()
         print("user----hotels",user_state.get_value('hotels'))
-        if user_response in user_state.get_value('hotels'):
-            residence = user_response
+        if user_response in user_state.get_value('current_page_hotels_dict'):
+            residence = user_state.get_value('current_page_hotels_dict')[user_response]
             print("place user" , user_state.get_value('place'))
             place_value = user_state.get_value('place')
             print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
@@ -393,7 +394,8 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
                     user_state.update_state('DEFAULTHOTEL')
         elif user_response == "הצגת אפשרויות נוספות":
             next_page_number = user_state.get_value('hotels_page_number') + 1
-            await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), next_page_number)
+            hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), next_page_number)
+            user_state.update_data('current_page_hotels_dict',hotels)
             user_state.update_data('hotels_page_number',next_page_number)
             user_state.update_state('hotel_allocation')
         elif user_response == "חיפוש":
@@ -415,8 +417,8 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             user_state.update_data('search_hotel_found_allocation', filtered_hotels[0])
             user_state.update_state('search_hotel_found_allocation')
         else:
-            await send_hotels_found(user_input.get("to"), user_input.get("from_number"), filtered_hotels)
-            user_state.update_data('search_hotels_found_allocation', filtered_hotels[0])
+            hotels = await send_hotels_found(user_input.get("to"), user_input.get("from_number"), filtered_hotels)
+            user_state.update_data('search_hotels_found_allocation', hotels)
             user_state.update_state('search_hotels_found_allocation')
 
     elif current_stage == 'search_hotel_found_allocation':
@@ -445,7 +447,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
 
     elif current_stage == 'search_hotels_found_allocation':
         if user_response in user_state.get_value('search_hotels_found_allocation'):
-            residence = user_response
+            residence = user_state.get_value('search_hotels_found_allocation')[user_response]
             print("place user" , user_state.get_value('place'))
             place_value = user_state.get_value('place')
             print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)

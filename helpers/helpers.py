@@ -775,7 +775,7 @@ async def send_hotel_option(from_number: str, to_number: str, hotel_options: lis
         response.raise_for_status()  # Raise an error for HTTP error responses
 
         if response.status_code == 200:
-            return hotel_options
+            return {f"{i+1}": string for i, string in enumerate(relevant_hotels)}
         else:
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
@@ -1263,6 +1263,6 @@ async def send_hotels_found(from_number, to_number, hotel_names):
     response = requests.post(url, json=payload, headers=headers)
     print(response)
     if response.status_code == 200:
-        return {"message": "message sent successfully."}
+        return {f"{i+1}": string for i, string in enumerate(hotel_names[:5])}
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
