@@ -2,4 +2,12 @@
 .env
 venv
 user_state_manager.log
+__pycache__/
+venv/
+ENV/
+.env/
+.venv/
+.venv.bak/
+env.bak/
+*.virtualenv
 ## settlements list
