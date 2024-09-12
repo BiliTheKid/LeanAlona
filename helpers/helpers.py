@@ -758,7 +758,7 @@ async def send_hotel_option(from_number: str, to_number: str, hotel_options: lis
     # Dynamically add button options to the payload
     for i, option in enumerate(relevant_hotels, start=1):
         payload["body"] += f"\n{i}. {option}"
-        payload[f"itemTitle{i}"] = option[:24]  # Limit the item text to 24 characters
+        payload[f"itemTitle{i}"] = f"{i}"
 
     next_index = i + 1
     if end_index < len(hotel_options):
@@ -1257,7 +1257,7 @@ async def send_hotels_found(from_number, to_number, hotel_names):
     }
     for i, option in enumerate(hotel_names[:5], start=1):
         payload["body"] += f"\n{i}. {option}"
-        payload[f"itemTitle{i}"] = option[:24]  # Limit the item text to 24 characters
+        payload[f"itemTitle{i}"] = f"{i}"
     payload[f"itemTitle{i+1}"] = "רשימת מלונות"
     print(payload)
     response = requests.post(url, json=payload, headers=headers)
