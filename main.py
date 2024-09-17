@@ -266,60 +266,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
                 user_state.update_data('place', place_str)
                 send_message_confim(user_input.get("to"), user_input.get("from_number"))
                 # add test here.
-                # hotels_options = await fetch_availability(place_value)
-                hotels_options = [
-                    "מלון דן, תל אביב",
-                    "מלון לאונרדו, אילת",
-                    "מלון קינג דיויד, ירושלים",
-                    "מלון ישרוטל, חיפה",
-                    "מלון הרודס, תל אביב",
-                    "מלון נפטון, ים המלח",
-                    "מלון אואזיס, אילת",
-                    "מלון קראון פלאזה, ירושלים",
-                    "מלון רמדה, נתניה",
-                    "מלון דויד אינטרקונטיננטל, תל אביב",
-                    "מלון הילטון, תל אביב",
-                    "מלון פבריק, תל אביב",
-                    "מלון טמרס, הרצליה",
-                    "מלון דיוויד ריזורט, ים המלח",
-                    "מלון בראשית, מצפה רמון",
-                    "מלון רוטשילד, תל אביב",
-                    "מלון אברהם הוסטל, ירושלים",
-                    "מלון דן פנורמה, חיפה",
-                    "מלון בוטיק נורמן, תל אביב",
-                    "מלון וורט, אשדוד",
-                    "מלון דן כרמל, חיפה",
-                    "מלון אורכידאה, אילת",
-                    "מלון ישרוטל ים סוף, אילת",
-                    "מלון גרנד קורט, ירושלים",
-                    "מלון מרינה, תל אביב",
-                    "מלון נורדוי, תל אביב",
-                    "מלון מגדל דוד, נתניה",
-                    "מלון דן קיסריה, קיסריה",
-                    "מלון הרודס ויטאליס, אילת",
-                    "מלון דן אכדיה, הרצליה",
-                    "מלון הבירה, ירושלים",
-                    "מלון אלמא, זכרון יעקב",
-                    "מלון יערות הכרמל, חיפה",
-                    "מלון ריץ קרלטון, הרצליה",
-                    "מלון נוף גינוסר, כנרת",
-                    "מלון שירת הים, כנרת",
-                    "מלון לאונרדו פלאזה, טבריה",
-                    "מלון עין גדי, ים המלח",
-                    "מלון המלך שלמה, אילת",
-                    "מלון ישרוטל טאואר, תל אביב",
-                    "מלון רויאל פלאזה, טבריה",
-                    "מלון מטיילים גשר הזיו, גליל מערבי",
-                    "מלון בוטיק ארמון, ירושלים",
-                    "מלון דיוויד דדון, נתניה",
-                    "מלון ממילא, ירושלים",
-                    "מלון וולדורף אסטוריה, ירושלים",
-                    "מלון ישרוטל מצפה הימים, גליל עליון",
-                    "מלון שדה בוקר, מצפה רמון",
-                    "מלון אוליב, תל אביב",
-                    "מלון אסטרל פאלמה, אילת"
-                ]
-
+                hotels_options = await fetch_availability(place_value)
 
                 if not hotels_options:
                     send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
@@ -372,7 +319,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         print("user----hotels",user_state.get_value('hotels'))
         if user_response in user_state.get_value('current_page_hotels_dict'):
             residence = user_state.get_value('current_page_hotels_dict')[user_response]
-            handle_hotel_chosen(user_state, residence)
+            await handle_hotel_chosen(user_input, user_state, residence)
         elif user_response == "הצגת אפשרויות נוספות":
             next_page_number = user_state.get_value('hotels_page_number') + 1
             hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), next_page_number)
@@ -405,7 +352,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
     elif current_stage == 'search_hotel_found_allocation':
         if user_response == 'אישור':
             residence = user_state.get_value('search_hotel_found_allocation')
-            handle_hotel_chosen(user_state, residence)
+            await handle_hotel_chosen(user_input, user_state, residence)
         else:
             await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), user_state.get_value('hotels_page_number'))
             user_state.update_state('hotel_allocation')
@@ -413,7 +360,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
     elif current_stage == 'search_hotels_found_allocation':
         if user_response in user_state.get_value('search_hotels_found_allocation'):
             residence = user_state.get_value('search_hotels_found_allocation')[user_response]
-            handle_hotel_chosen(user_state, residence)
+            await handle_hotel_chosen(user_input, user_state, residence)
         else:
             await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), user_state.get_value('hotels_page_number'))
             user_state.update_state('hotel_allocation')
@@ -441,7 +388,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
     elif current_stage == 'ENDF':
         return "תודה רבה והמשך יום טוב!"
 
-async def handle_hotel_chosen(user_state: UserState, residence: str)
+async def handle_hotel_chosen(user_input: Dict[str, Any], user_state: UserState, residence: str):
     print("place user" , user_state.get_value('place'))
     place_value = user_state.get_value('place')
     print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)

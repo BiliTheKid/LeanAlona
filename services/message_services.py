@@ -74,7 +74,7 @@ def extract_names(data):
     
     if isinstance(data, dict):
         available_residences = data.get('availableResidencesArray', [])
-        names = [f"{hotel['residence']['name']}, {hotel['residence']['city']}" for hotel in hotels]
+        names = [f"{hotel['residence']['name']}, {hotel['residence']['city']}" for hotel in available_residences]
         return names
     else:
         raise ValueError("Expected data to be a dictionary but got: " + str(type(data)))
