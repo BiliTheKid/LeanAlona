@@ -730,12 +730,12 @@ def process_user_state(user_state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-async def send_hotel_option(from_number: str, to_number: str, hotel_options: list):
+async def send_hotel_option(from_number: str, to_number: str, hotel_options: list, page_number: int):
     """
     Send a message with dynamic buttons based on the number of hotel options provided.
     """
     api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
-    suffix = "/sendButtons"    # The suffix you want to add
+    suffix = "/sendList"    # The suffix you want to add
     url = api_99 + suffix
     api_key = os.getenv("API_KEY")
 
@@ -747,15 +747,24 @@ async def send_hotel_option(from_number: str, to_number: str, hotel_options: lis
         "apiKey": api_key,
         "from": from_number,
         "to": to_number,
-        "header": 1,
-        "body": "מצאתי לכם חדרים פנויים. אנא בחר מתוך האפשרויות הבאות : "
+        "body": "מצאתי לכם חדרים פנויים. אנא בחר מתוך האפשרויות הבאות:",
+        "buttonText": "לבחירת אפשרות"
     }
-    
+
+    page_size = 5
+    start_index = (page_number - 1) * page_size
+    end_index = start_index + page_size
+    relevant_hotels = hotel_options[start_index:end_index]
     # Dynamically add button options to the payload
-    for i, option in enumerate(hotel_options, start=1):
-        if i <= 4:  # Limit to 4 buttons
-            payload[f"button{i}"] = option
-    
+    for i, option in enumerate(relevant_hotels, start=1):
+        payload["body"] += f"\n{i}. {option}"
+        payload[f"itemTitle{i}"] = f"{i}"
+
+    next_index = i + 1
+    if end_index < len(hotel_options):
+        payload[f"itemTitle{next_index}"] = "הצגת אפשרויות נוספות"
+    payload[f"itemTitle{next_index + 1}"] = "חיפוש"
+
     headers = {
         "Content-Type": "application/json"
     }
@@ -764,10 +773,9 @@ async def send_hotel_option(from_number: str, to_number: str, hotel_options: lis
         # Send the request
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()  # Raise an error for HTTP error responses
-        print(response)
 
         if response.status_code == 200:
-            return hotel_options
+            return {f"{i+1}": string for i, string in enumerate(relevant_hotels)}
         else:
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
@@ -1146,3 +1154,115 @@ def value_error(from_number, to_number):
     else:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
+
+def send_hotel_search_prompt(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body":"יש להקליד שם מלון"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+async def send_hotel_not_found(from_number, to_number):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendMessage"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body":"לא נמצא המלון המועדף"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+async def send_hotel_found(from_number, to_number, hotel_name):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendButtons"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "header": 1,
+        "body":"האם התכוונת ל" + hotel_name + "?",
+        "button1": "אישור",
+        "button2": "רשימת מלונות"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+async def send_hotels_found(from_number, to_number, hotel_names):
+    """"
+    send message for users that insert wrong input.
+    """
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendList"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "body":"נמצאו חדרים פנויים במלונות הבאים. יש לבחור את המלון המועדף מתוך האפשרויות הבאות:",
+        "buttonText": "לבחירת אפשרות"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    for i, option in enumerate(hotel_names[:5], start=1):
+        payload["body"] += f"\n{i}. {option}"
+        payload[f"itemTitle{i}"] = f"{i}"
+    payload[f"itemTitle{i+1}"] = "רשימת מלונות"
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {f"{i+1}": string for i, string in enumerate(hotel_names[:5])}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)

@@ -14,7 +14,7 @@ from helpers.helpers import (
     send_message_correct_place, send_message_approve_place, get_settlement_code, process_user_state,
     send_message_place_stage_validtion, get_random_hotel_names_from_file,send_hotel_option, is_numeric, send_message_ppl_error,
 send_hotel_voucher_no_rooms,send_hotel_defulat,send_hotel_room,confirm_or_cancle_hotel,thanks_for_approval,thanks_for_decline
-,end_confirm,end_decline,connect_106,send_message_limit_ppl,value_error
+,end_confirm,end_decline,connect_106,send_message_limit_ppl,value_error, send_hotel_search_prompt, send_hotel_not_found, send_hotel_found, send_hotels_found
 )
 from services.message_services import fetch_availability,get_placement_if_exists
 from models.user_answer import UserAnswerCreate
@@ -277,9 +277,11 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
                         #send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
                         print("before hotel await",hotels_options)
                         print("hotel type",type(hotels_options))
-                        hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options)
+                        hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),hotels_options, 1)
                         print("hotels await",hotels)
-                        user_state.update_data('hotels',hotels)
+                        user_state.update_data('current_page_hotels_dict',hotels)
+                        user_state.update_data('hotels',hotels_options)
+                        user_state.update_data('hotels_page_number', 1)
                         user_state.update_state('hotel_allocation')
                     except: 
                         user_state.update_state('start')
@@ -315,32 +317,53 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         # print(hotels)
         #random_chice = get_random_hotel_names_from_file()
         print("user----hotels",user_state.get_value('hotels'))
-        if user_response in user_state.get_value('hotels'):
-            residence = user_response
-            print("place user" , user_state.get_value('place'))
-            place_value = user_state.get_value('place')
-            print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-            voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
-            voucher_status = voucher_response.get("status")
-            voucher_link = voucher_response.get("link")
-            voucher_residence = voucher_response.get("residence")
-            print("voucher_response:", voucher_response)
-            
-            if voucher_status == "error-no-available-rooms":
-                send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
-                user_state.update_state('start')
-
-            elif voucher_status == "error-other-residence-reserved":
-                    send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                    user_state.update_state('DEFAULTHOTEL')
-
-            elif voucher_status == "success":
-                    send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
-                    user_state.update_state('DEFAULTHOTEL')
-        
+        if user_response in user_state.get_value('current_page_hotels_dict'):
+            residence = user_state.get_value('current_page_hotels_dict')[user_response]
+            await handle_hotel_chosen(user_input, user_state, residence)
+        elif user_response == "הצגת אפשרויות נוספות":
+            next_page_number = user_state.get_value('hotels_page_number') + 1
+            hotels = await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), next_page_number)
+            user_state.update_data('current_page_hotels_dict',hotels)
+            user_state.update_data('hotels_page_number',next_page_number)
+            user_state.update_state('hotel_allocation')
+        elif user_response == "חיפוש":
+            send_hotel_search_prompt(user_input.get("to"), user_input.get("from_number"))
+            user_state.update_state('hotel_search')
         else:
             value_error(user_input.get("to"), user_input.get("from_number"))
             user_state.update_state('hotel_allocation')        
+    elif current_stage == 'hotel_search':
+        hotels = user_state.get_value('hotels')
+        filtered_hotels = [hotel for hotel in hotels if user_response in hotel]
+        filtered_hotels_size = len(filtered_hotels)
+        if filtered_hotels_size == 0:
+            await send_hotel_not_found(user_input.get("to"), user_input.get("from_number"))
+            await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), user_state.get_value('hotels_page_number'))
+            user_state.update_state('hotel_allocation')
+        elif filtered_hotels_size == 1:
+            await send_hotel_found(user_input.get("to"), user_input.get("from_number"), filtered_hotels[0])
+            user_state.update_data('search_hotel_found_allocation', filtered_hotels[0])
+            user_state.update_state('search_hotel_found_allocation')
+        else:
+            hotels = await send_hotels_found(user_input.get("to"), user_input.get("from_number"), filtered_hotels)
+            user_state.update_data('search_hotels_found_allocation', hotels)
+            user_state.update_state('search_hotels_found_allocation')
+
+    elif current_stage == 'search_hotel_found_allocation':
+        if user_response == 'אישור':
+            residence = user_state.get_value('search_hotel_found_allocation')
+            await handle_hotel_chosen(user_input, user_state, residence)
+        else:
+            await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), user_state.get_value('hotels_page_number'))
+            user_state.update_state('hotel_allocation')
+
+    elif current_stage == 'search_hotels_found_allocation':
+        if user_response in user_state.get_value('search_hotels_found_allocation'):
+            residence = user_state.get_value('search_hotels_found_allocation')[user_response]
+            await handle_hotel_chosen(user_input, user_state, residence)
+        else:
+            await send_hotel_option(user_input.get("to"), user_input.get("from_number"),user_state.get_value('hotels'), user_state.get_value('hotels_page_number'))
+            user_state.update_state('hotel_allocation')
 
     elif current_stage == 'DEFAULTHOTEL':
         # confirm_or_cancle_hotel(user_input.get("to"), user_input.get("from_number"))
@@ -364,6 +387,25 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
 
     elif current_stage == 'ENDF':
         return "תודה רבה והמשך יום טוב!"
+
+async def handle_hotel_chosen(user_input: Dict[str, Any], user_state: UserState, residence: str):
+    print("place user" , user_state.get_value('place'))
+    place_value = user_state.get_value('place')
+    print("here!!!!!!",residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
+    voucher_response  = await get_placement_if_exists(residence, place_value,user_state.get_value('id_number'),user_state.get_value('people'),user_state.user_id)
+    voucher_status = voucher_response.get("status")
+    voucher_link = voucher_response.get("link")
+    voucher_residence = voucher_response.get("residence")
+    print("voucher_response:", voucher_response)
+    if voucher_status == "error-no-available-rooms":
+        send_hotel_voucher_no_rooms(user_input.get("to"), user_input.get("from_number"))
+        user_state.update_state('start')
+    elif voucher_status == "error-other-residence-reserved":
+            send_hotel_defulat(user_input.get("to"), user_input.get("from_number"), voucher_link)
+            user_state.update_state('DEFAULTHOTEL')
+    elif voucher_status == "success":
+            send_hotel_room(user_input.get("to"), user_input.get("from_number"), voucher_link)
+            user_state.update_state('DEFAULTHOTEL')
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=8000)
