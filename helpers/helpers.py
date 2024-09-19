@@ -1127,6 +1127,112 @@ def send_message_limit_ppl(from_number, to_number):
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
 
+def send_confirm_place_message(from_number, to_number, place: str):
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendButtons"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "header":1,
+        "body": f"האם הכוונה היא {place}?",
+        "button1": "כן",
+        "button2": "לא"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+def send_is_accessible_room_needed(from_number, to_number):
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendButtons"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "header":1,
+        "body": "אוקי קיבלתי, האם נדרש חדר נגיש?",
+        "button1": "נדרש",
+        "button2": "לא נדרש"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
+def send_has_pets(from_number, to_number):
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendButtons"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "header":1,
+        "body": "תודה, האם אתם מגיעים עם חיית מחמד?",
+        "button1": "כן",
+        "button2": "לא"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
+def send_details_summary_approval_message(from_number, to_number, full_name, id_number, people, accessible, pet):
+    api_99 = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    #url = os.getenv("API_BRIDGE")  # Replace with your actual API endpoint
+    suffix = "/sendButtons"    # The suffix you want to add
+    url = api_99 + suffix
+    api_key = os.getenv("API_KEY")
+    payload = {
+        "apiKey": api_key ,
+        "from": from_number,
+        "to": to_number,
+        "header":1,
+        "body": f"מצוין.\nאלו הפרטים שרשמתי:\nשם מלא: {full_name},\nתעודת זהות: {id_number},\nמבקש חדרים ל-{people} נפשות.\n{accessible} חדר נגיש.\n{pet} עם חיית מחמד.\nלחץ על ׳אישור׳ אם הפרטים נכונים,\nאו על ׳תיקון׳ אם יש צורך בתיקון ואז נתחיל את התהליך מחדש.",
+        "button1": "אישור",
+        "button2": "תיקון"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    print(payload)
+    response = requests.post(url, json=payload, headers=headers)
+    print(response)
+    if response.status_code == 200:
+        return {"message": "message sent successfully."}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
 def value_error(from_number, to_number):
     """"
     send message for users that insert wrong input.

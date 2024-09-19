@@ -7,14 +7,16 @@ import json
 import re
 from models.user import UserState
 from helpers.helpers import (
-    send_message_non, get_template_sender, TemplateSender, send_message_gen,
+    send_message_non, send_message_gen,
     send_message_name_hotel, get_message_sender, send_message_name_identification,
     send_message_name_id, send_message_place, send_message_ppl, send_message_reset,
     send_message_confim, is_israeli_id_number, send_message_name_id_error, find_best_settlement_match,
     send_message_correct_place, send_message_approve_place, get_settlement_code, process_user_state,
     send_message_place_stage_validtion, get_random_hotel_names_from_file,send_hotel_option, is_numeric, send_message_ppl_error,
-send_hotel_voucher_no_rooms,send_hotel_defulat,send_hotel_room,confirm_or_cancle_hotel,thanks_for_approval,thanks_for_decline
-,end_confirm,end_decline,connect_106,send_message_limit_ppl,value_error, send_hotel_search_prompt, send_hotel_not_found, send_hotel_found, send_hotels_found
+    send_hotel_voucher_no_rooms,send_hotel_defulat,send_hotel_room,confirm_or_cancle_hotel,thanks_for_approval,thanks_for_decline,
+    end_confirm,end_decline,connect_106,send_message_limit_ppl,value_error, send_hotel_search_prompt, send_hotel_not_found,
+    send_hotel_found, send_hotels_found, send_is_accessible_room_needed, send_has_pets, send_confirm_place_message,
+    send_details_summary_approval_message
 )
 from services.message_services import fetch_availability,get_placement_if_exists
 from models.user_answer import UserAnswerCreate
@@ -164,8 +166,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             user_state.update_state('num_of_people')
         else:
             # If the match is not perfect, ask for confirmation
-            sender = get_template_sender("confirm_place")
-            response = sender.send_template(user_input, matched_place)
+            send_confirm_place_message(user_input.get("to"), user_input.get("from_number"), matched_place)
             # Wait for the user to confirm
             user_state.update_data('place', matched_place)
             user_state.update_state('confirm_place')
@@ -198,15 +199,13 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
             else:
                 user_state.update_data('people', user_response)
                 # user_state.update_data('accessible', user_response)
-                sender = get_template_sender("accessible")
-                response = sender.send_template(user_input)
+                send_is_accessible_room_needed(user_input.get("to"), user_input.get("from_number"))
                 user_state.update_state('accessible')
 
     elif current_stage == 'people':
             user_state.update_data('people', user_response)
             # user_state.update_data('accessible', user_response)
-            sender = get_template_sender("accessible")
-            response = sender.send_template(user_input)
+            send_is_accessible_room_needed(user_input.get("to"), user_input.get("from_number"))
             user_state.update_state('accessible')
 
     elif current_stage == 'nav_to_106_or_cont':
@@ -230,8 +229,7 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         else:
             # Handle valid response
             user_state.update_data('accessible', user_response)
-            sender = get_template_sender("pet")
-            response = sender.send_template(user_input)
+            send_has_pets(user_input.get("to"), user_input.get("from_number"))
             user_state.update_state('pet')
 
     elif current_stage == 'pet':
@@ -243,8 +241,16 @@ async def handle_transition(user_state: UserState, user_input: Dict[str, Any]) -
         else:
             # Valid response, update state and data
             user_state.update_data('pet', user_response)
-            sender = get_template_sender("before_end")
-            response = sender.send_template(user_input, user_state.get_data())
+            user_data = user_state.get_data()
+            send_details_summary_approval_message(
+                user_input.get("to"),
+                user_input.get("from_number"),
+                user_data.get("identification"),
+                user_data.get("id_number"),
+                user_data.get("people"),
+                user_data.get("accessible"),
+                "מגיעים" if user_data.get("pet") == "כן" else "לא מגיעים",
+            )
             user_state.update_state('finale')
 
     elif current_stage == 'finale':
